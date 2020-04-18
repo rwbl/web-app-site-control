@@ -1,0 +1,1361 @@
+[
+    {
+        "id": "aca7a4e9.b87e18",
+        "type": "subflow",
+        "name": "rmdev dp val",
+        "info": "Get RaspMatic Device Datapoints or a selected Datapoint.\n\n**INPUT**\n\n**TOPIC**\n\nThe Device Datapoint.\n\n**PAYLOAD**\n\nLeave empty to get all datapoints or define a CSV string with datapoint types (i.e. LOW_BAT,STATE).\n\n_HINT_\nThe device datapoint can be obtained by using the XML-API script statelist.\n\nExample:\n`http://ccu-ip/addons/xmlapi/statelist.cgi`.\n\nThe device datapoint is then used to get its associated datapoints.\nExample URL XML-API request for the device with id 1541:\n`http://ccu-ip/addons/xmlapi/state.cgi?device_id=1541`.\n\n**OUTPUT**\n\nThe device datapoints. Either all or selected as given by the input payload.\n\nA datapoint can be selected from the msg.payload by its key. Example: \n`msg.payload.STATE, msg.payload.LOW_BAT`.\n\n",
+        "category": "",
+        "in": [
+            {
+                "x": 60,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "1074766a.e1a132"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 1040,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "f8c6f79a.67fc88",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#4ee44e"
+    },
+    {
+        "id": "1074766a.e1a132",
+        "type": "function",
+        "z": "aca7a4e9.b87e18",
+        "name": "Set URL Device State",
+        "func": "// set the url xml-api to get the state for a device\nconst DEBUG = global.get(\"debug\");\n//const DEBUG = true;\n\n// The msg.topic holds the device datapoint\nconst deviceid = msg.topic;\n\n// The msg.payload defines optional device datapoints\n// Set as flow context because used by the function getting the datapoints\n// If left blank all datapoints are returned\nflow.set(\"datapoints\",msg.payload);\n\n// ccuip/addons/xmlapi/state.cgi?device_id=1541\nmsg.url = global.get(\"ccuip\") + \"/addons/xmlapi/state.cgi?device_id=\" + deviceid;\nif (DEBUG === true) node.warn(msg.url);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 220,
+        "y": 100,
+        "wires": [
+            [
+                "a00f1e2b.675018"
+            ]
+        ]
+    },
+    {
+        "id": "a00f1e2b.675018",
+        "type": "http request",
+        "z": "aca7a4e9.b87e18",
+        "name": "Request Device State",
+        "method": "GET",
+        "ret": "txt",
+        "paytoqs": false,
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 280,
+        "y": 160,
+        "wires": [
+            [
+                "5807294c.fb27a8"
+            ]
+        ]
+    },
+    {
+        "id": "5807294c.fb27a8",
+        "type": "function",
+        "z": "aca7a4e9.b87e18",
+        "name": "Correct Datapoints",
+        "func": "// Correct strings in the datapoints XML response.\nvar statelist = msg.payload;\n\n// \"\"\"\" to be replaced to \"\"\nstatelist.replace(\"\\\"\\\"\",\"\");\n// Assign the corrected statelist\nmsg.payload = statelist;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 510,
+        "y": 160,
+        "wires": [
+            [
+                "ed3d988a.29356"
+            ]
+        ]
+    },
+    {
+        "id": "ed3d988a.29356",
+        "type": "xml",
+        "z": "aca7a4e9.b87e18",
+        "name": "Convert XML",
+        "property": "payload",
+        "attr": "",
+        "chr": "",
+        "x": 710,
+        "y": 160,
+        "wires": [
+            [
+                "f8c6f79a.67fc88"
+            ]
+        ]
+    },
+    {
+        "id": "f8c6f79a.67fc88",
+        "type": "function",
+        "z": "aca7a4e9.b87e18",
+        "name": "Set Datapoints",
+        "func": "// Get all device or selected datapoints depending flow context \"datapoints\".\n// If empty all datapoints are returned else the datapoints as defined as CVS with their type.\n// Types examples are LOW_BAT, STATE\n// The msg returns a json object with datapoints TYPE:VALUE:\n// {STATE:\"1\", LOW_BAT:\"false\", ...}\n// Get a datapoint from the payload, i.e. msg.payload.STATE which gives \"1\"\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// define the JSON object1rray with the datapoints\n// {ISE_ID:\"NNNN\", STATE:\"false\" ...}, \nvar devicedatapoints = {};\n\n// Get all datapoints\nfunction getDatapoints(devicechannels){\n    var result = {};\n    // loop over the devicechannels datapoints\n    devicechannels.forEach(function(channel) {\n        // get the datapoints\n        datapoints = channel.datapoint;\n        if (datapoints !== undefined) {\n            // if (DEBUG) node.warn(\"Channel datapoints=\" + datapoints.length);   //\"Channel datapoints=8\"\n            // get the channel datapoints\n            datapoints.forEach(function(datapoint){\n                devicedatapoints[datapoint.$.type] = datapoint.$.value;\n                if (DEBUG) node.warn(\"Datapoint=\" + datapoint.$.ise_id + \":\" + datapoint.$.type + \"=\" + datapoint.$.value);\n            });\n        }\n    });\n    return result;\n}\n\n// get the datapoint value and set the topic & flow context datapoint type to the datapoint ise_id\nfunction getDatapointValue(devicechannels,datapointtype){\n    var result = {};\n    // loop over the devicechannels datapoints\n    devicechannels.forEach(function(channel) {\n        // get the datapoints\n        datapoints = channel.datapoint;\n        if (datapoints !== undefined) {\n            // if (DEBUG) node.warn(\"Channel datapoints=\" + datapoints.length);   //\"Channel datapoints=8\"\n            // get the channel datapoints\n            datapoints.forEach(function(datapoint){\n                if (datapoint.$.type == datapointtype.toUpperCase()) {\n                    devicedatapoints[datapoint.$.type] = datapoint.$.value;\n                    if (DEBUG) node.warn(\"Datapoint=\" + datapoint.$.ise_id + \":\" + datapoint.$.type + \"=\" + datapoint.$.value);\n                }\n            });\n        }\n    });\n    return result;\n}\n\n// get the single device channels from xml into json format\ndevicechannels = msg.payload.state.device[0].channel;\ndevicename = msg.payload.state.device[0].$.name;\nif (DEBUG) node.warn(\"Device \" + devicename + \", channels=\" + devicechannels.length);   //\"Device channels=8\"\n// if (DEBUG) node.warn(devicechannels);   //8 objects\n\n// Check the flow context datapoints\n// split the flow context \"datapoints\" in an array\nif (DEBUG) node.warn(\"Search Datapoints:\" + flow.get(\"datapoints\"));\nif (flow.get(\"datapoints\") === \"\") {\n    getDatapoints(devicechannels);\n}\nelse {\n    searchdatapoints = flow.get(\"datapoints\").split(\",\");\n    searchdatapoints.forEach(function(datapoint){\n        getDatapointValue(devicechannels,datapoint);\n    });\n}\n\nmsg.payload = devicedatapoints;\nif (DEBUG) node.warn(msg.payload);\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 900,
+        "y": 100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "83c3e25a.f926b",
+        "type": "subflow",
+        "name": "http request",
+        "info": "Hue HTTP API Request to the Hue Bridge.\n\n**INPUT**\n\nMessage payload with URL, i.e. msg.url = \"http://...\"\n\n**OUTPUT**\n\nMessage payload containing the HTTP API response.\n",
+        "category": "",
+        "in": [
+            {
+                "x": 60,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "7a6fa9ff.84a4f8"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 680,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "d1545d90.ad5e8",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#AAAA66"
+    },
+    {
+        "id": "7a6fa9ff.84a4f8",
+        "type": "http request",
+        "z": "83c3e25a.f926b",
+        "name": "HTTP API GET Request",
+        "method": "GET",
+        "ret": "txt",
+        "paytoqs": false,
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 230,
+        "y": 140,
+        "wires": [
+            [
+                "d1545d90.ad5e8"
+            ]
+        ]
+    },
+    {
+        "id": "d1545d90.ad5e8",
+        "type": "json",
+        "z": "83c3e25a.f926b",
+        "name": "Convert JavaScript Object",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 510,
+        "y": 140,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "26aa676b.71ab58",
+        "type": "comment",
+        "z": "83c3e25a.f926b",
+        "name": "HTTP Response",
+        "info": "",
+        "x": 740,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "6f9b0c75.9f3ca4",
+        "type": "comment",
+        "z": "83c3e25a.f926b",
+        "name": "msg.url",
+        "info": "",
+        "x": 90,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "b5f62f16.f2a0e",
+        "type": "subflow",
+        "name": "datetime",
+        "info": "Date & Time Functions\n\n**INPUT**\n\nNo input used.\n\n**OUTPUT**\n\nJSON Object with keys:value pairs.\n\n_Examples Payload_\n\n01-04-2020 (KW 14)\n\n{{msg.payload.date}} (KW {{msg.payload.weeknr}})\n\n\n",
+        "category": "",
+        "in": [
+            {
+                "x": 40,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "6ad65be3.25f664"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 300,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "6ad65be3.25f664",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [
+            {
+                "name": "All",
+                "type": "bool",
+                "value": "true"
+            },
+            {
+                "name": "Date",
+                "type": "bool",
+                "value": "false"
+            },
+            {
+                "name": "Time",
+                "type": "bool",
+                "value": "false"
+            },
+            {
+                "name": "DateTime",
+                "type": "bool",
+                "value": "false"
+            },
+            {
+                "name": "UseSeconds",
+                "type": "bool",
+                "value": "true"
+            }
+        ],
+        "color": "#DDAA99",
+        "status": {
+            "x": 300,
+            "y": 120,
+            "wires": [
+                {
+                    "id": "6ad65be3.25f664",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "6ad65be3.25f664",
+        "type": "function",
+        "z": "b5f62f16.f2a0e",
+        "name": "Date Time",
+        "func": "// Various date & time functions\nconst DEBUG = false;\n\n// Get date now and format dd-mm-yyyy\nvar getDateNow = function() {\n    var today = new Date();\n    var dd = today.getDate();\n    var mm = today.getMonth()+1;\n    var yyyy = today.getFullYear();\n    if(dd<10) dd='0'+dd;\n    if(mm<10) mm='0'+mm;\n    return dd+\"-\"+mm+\"-\"+yyyy;\n} \n\n// Get date now and format YYYY-mm-dd\n// const DATENOW = getDateNowYYYYmmdd();\nvar getDateNowYYYYmmdd = function() {\n    var today = new Date();\n    var dd = today.getDate();\n    var mm = today.getMonth()+1;\n    var yyyy = today.getFullYear();\n    if(dd<10) dd='0'+dd;\n    if(mm<10) mm='0'+mm;\n    return yyyy + \"-\" + mm + \"-\" + dd;\n} \n\n// Get time now and format\nvar getTimeNow = function(usesecs) {\n    var today = new Date();\n    var hh = today.getHours();\n    var mm = today.getMinutes(); \n    var ss = today.getSeconds(); \n    if(hh<10) hh='0'+hh;\n    if(mm<10) mm='0'+mm;\n    if(ss<10) ss='0'+ss;\n    var result = (usesecs) ? hh + \":\" + mm + \":\" + ss : hh + \":\" + mm;\n    return result\n}\n\n// Returns the ISO week of the date from an UTC timestamp.\nvar getWeekNumber = function() {\n    var today = new Date();\n    var onejan = new Date(today.getFullYear(),0,1);\n    return Math.ceil((((today - onejan) / 86400000) + onejan.getDay()+1)/7);\n}\n\n/*\nISO 8601 week numbering.\nNew week starts on mondays.\nUsed by most European countries, most of Asia and Oceania.\n1st week contains 4-7 days of the new year\nThanks to https://github.com/commenthol/weeknumber\n*/\nvar getWeekNumber2 = function() {\n    const MINUTE = 60000\n    const DAY = 86400000\n    const WEEK = 604800000 // = 7 * 24 * 60 * 60 * 1000 = 7 days in ms\n    const tzDiff = (first, second) => (first.getTimezoneOffset() - second.getTimezoneOffset()) * MINUTE\n    const date = new Date();\n  // day 0 is monday\n  const day = (date.getDay() + 6) % 7\n  // get thursday of present week\n  const thursday = new Date(date)\n  thursday.setDate(date.getDate() - day + 3)\n  // set 1st january first\n  const firstThursday = new Date(thursday.getFullYear(), 0, 1)\n  // if Jan 1st is not a thursday...\n  if (firstThursday.getDay() !== 4) {\n    firstThursday.setMonth(0, 1 + (11 /* 4 + 7 */ - firstThursday.getDay()) % 7)\n  }\n  const weekNumber = 1 + Math.floor((thursday - firstThursday + tzDiff(firstThursday, thursday)) / WEEK)\n  return weekNumber\n}\n\nvar getDayStr = function() {\n    var now = new Date();\n    day = now.getDate();\n    dayNr = now.getDay();\n    weekDay = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag' ];\n    return weekDay[dayNr];\n}\n\nvar getMonthStr = function() {\n    var now = new Date();\n    monthNr = now.getMonth();\n \tmonth = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September', 'Oktober','November','Dezember'];\n    return month[monthNr];\n}\n\n// Check if to use seconds for the time\nconst usesecs = env.get(\"UseSeconds\");\n\n// Select the option for the msg to return\nif (env.get(\"All\")) {msg.payload = {\n    \"date\":getDateNow(),\n    \"dateyyyymmdd\":getDateNowYYYYmmdd(),\n    \"time\":getTimeNow(usesecs), \n    \"timehhmm\":getTimeNow(false), \n    \"datetime\":getDateNow() + \" \" + getTimeNow(usesecs), \n    \"datetimehhmm\":getDateNow() + \" \" + getTimeNow(false), \n    \"weeknr\":getWeekNumber(), \n    \"daystr\":getDayStr(),\n    \"monthstr\":getMonthStr()}}\nif (env.get(\"Date\")) {msg.payload = getDateNow()}\nif (env.get(\"Time\")) {msg.payload = getTimeNow(usesecs)}\nif (env.get(\"DateTime\")) {msg.payload = getDateNow() + \" \" + getTimeNow(usesecs)}\n\n// Debug\nif (DEBUG) node.warn(msg.payload);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 170,
+        "y": 80,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "98793125.02979",
+        "type": "subflow",
+        "name": "sunriseset",
+        "info": "Get the times for the sunrise,sunset and daylight\n\n**INPUT**\n\n**Payload**\n\nLocation Latitude & Longitude as JSON object.\n\n_Example:_ {\"lat\": 53.63647,\"lon\": 9.798251}\n\n**OUTPUT**\n\nJSON object with key:value pairs:\n\n**sunrise** = HH:MM\n\n**sunset** = HH:MM\n\n**daylight** = HH:MM\n\n_Example:_ \n\nUsage msg.payload.sunrise ...\n\n**CREDITS**\n\nFunction SunriseSunset = Copyright 2011-2013 Preston Hunt <me@prestonhunt.com>\n",
+        "category": "",
+        "in": [
+            {
+                "x": 60,
+                "y": 60,
+                "wires": [
+                    {
+                        "id": "7e88ff99.0ebf3"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 340,
+                "y": 60,
+                "wires": [
+                    {
+                        "id": "7e88ff99.0ebf3",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#FFCC66",
+        "status": {
+            "x": 340,
+            "y": 160,
+            "wires": [
+                {
+                    "id": "7e88ff99.0ebf3",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "7e88ff99.0ebf3",
+        "type": "function",
+        "z": "98793125.02979",
+        "name": "Set Daylight Info",
+        "func": "// Get the times for the sunrise,sunset and daylight\n// Requires as input a msg.paylog with lat & lon as json:\n// Example: {\"lat\": 53.63647,\"lon\": 9.798251}\n// Returns\n// msg.payload.sunrise  // 06:58\n// msg.payload.sunset   // 19:54\n// msg.payload.daylight // 12:04\n//\n// CREDITS\n// Function SunriseSunset = Copyright 2011-2013 Preston Hunt <me@prestonhunt.com>\n\nconst DEBUG = global.get(\"debug\");\n//const DEBUG = true;\n\n// START SUNRISETCALC\n// Calculate time sunrise/set\nvar SunriseSunset = function( utcFullYear, utcMonth, utcDay, latitude, longitude ) {\n    this.zenith = 90 + 50/60; //   offical      = 90 degrees 50'\n                              //   civil        = 96 degrees\n                              //   nautical     = 102 degrees\n                              //   astronomical = 108 degrees\n\n    this.utcFullYear = utcFullYear;\n    this.utcMonth = utcMonth;\n    this.utcDay = utcDay;\n    this.latitude = latitude;\n    this.longitude = longitude;\n\n    this.rising = true; // set to true for sunrise, false for sunset\n    this.lngHour = this.longitude / 15;\n};\n\nSunriseSunset.prototype = {\n    sin: function( deg ) { return Math.sin( deg * Math.PI / 180 ); },\n    cos: function( deg ) { return Math.cos( deg * Math.PI / 180 ); },\n    tan: function( deg ) { return Math.tan( deg * Math.PI / 180 ); },\n    asin: function( x ) { return (180/Math.PI) * Math.asin(x); },\n    acos: function( x ) { return (180/Math.PI) * Math.acos(x); },\n    atan: function( x ) { return (180/Math.PI) * Math.atan(x); },\n\n    getDOY: function() {\n        var month = this.utcMonth,\n            year = this.utcFullYear,\n            day = this.utcDay;\n\n        var N1 = Math.floor( 275 * month / 9 );\n        var N2 = Math.floor( (month + 9) / 12 );\n        var N3 = (1 + Math.floor((year - 4 * Math.floor(year / 4 ) + 2) / 3));\n        var N = N1 - (N2 * N3) + day - 30;\n        return N;\n    },\n\n    approximateTime: function() {\n        var doy = this.getDOY();\n        if ( this.rising ) {\n            return doy + ((6 - this.lngHour) / 24);\n        } else {\n            return doy + ((18 - this.lngHour) / 24);\n        }\n    },\n\n    meanAnomaly: function() {\n        var t = this.approximateTime();\n        return (0.9856 * t) - 3.289;\n    },\n\n    trueLongitude: function() {\n        var M = this.meanAnomaly();\n        var L = M + (1.916 * this.sin(M)) + (0.020 * this.sin(2 * M)) + 282.634;\n        return L % 360;\n    },\n\n    rightAscension: function() {\n        var L = this.trueLongitude();\n        var RA = this.atan(0.91764 * this.tan(L));\n        RA %= 360;\n\n        var Lquadrant  = (Math.floor( L/90)) * 90;\n        var RAquadrant = (Math.floor(RA/90)) * 90;\n        RA = RA + (Lquadrant - RAquadrant);\n        RA /= 15;\n\n        return RA;\n    },\n\n    sinDec: function() {\n        var L = this.trueLongitude(),\n            sinDec = 0.39782 * this.sin(L);\n\n        return sinDec;\n    },\n\n    cosDec: function() {\n        return this.cos(this.asin(this.sinDec()));\n    },\n\n    localMeanTime: function() {\n        var cosH = (this.cos(this.zenith) - (this.sinDec() * this.sin(this.latitude))) / (this.cosDec() * this.cos(this.latitude));\n\n        if (cosH >  1) {\n            return \"the sun never rises on this location (on the specified date)\";\n        } else if (cosH < -1) {\n            return \"the sun never sets on this location (on the specified date)\";\n        } else {\n            var H = this.rising ? 360 - this.acos(cosH) : this.acos(cosH);\n            H /= 15;\n            var RA = this.rightAscension();\n            var t = this.approximateTime();\n            var T = H + RA - (0.06571 * t) - 6.622;\n            return T;\n        }\n    },\n\n    hoursRange: function( h ) {\n        return (h+24) % 24;\n    },\n\n    UTCTime: function() {\n        var T = this.localMeanTime();\n        var UT = T - this.lngHour;\n        return this.hoursRange( UT );\n        //if ( UT < 0 ) UT += 24;\n        //return UT % 24;\n    },\n\n    sunriseUtcHours: function() {\n        this.rising = true;\n        return this.UTCTime();\n    },\n\n    sunsetUtcHours: function() {\n        this.rising = false;\n        return this.UTCTime();\n    },\n\n    sunriseLocalHours: function(gmt) {\n        return this.hoursRange( gmt + this.sunriseUtcHours() );\n    },\n\n    sunsetLocalHours: function(gmt) {\n        return this.hoursRange( gmt + this.sunsetUtcHours() );\n    },\n\n    // utcCurrentHours is the time that you would like to test for daylight, in hours, at UTC\n    // For example, to test if it's daylight in Tokyo (GMT+9) at 10:30am, pass in\n    // utcCurrentHours=1.5, which corresponds to 1:30am UTC.\n    isDaylight: function( utcCurrentHours ) {\n        var sunriseHours = this.sunriseUtcHours(),\n            sunsetHours = this.sunsetUtcHours();\n\n        if ( sunsetHours < sunriseHours ) {\n            // Either the sunrise or sunset time is for tomorrow\n            if ( utcCurrentHours > sunriseHours ) {\n                return true;\n            } else if ( utcCurrentHours < sunsetHours ) {\n                return true;\n            } else {\n                return false;\n            }\n        }\n\n        if ( utcCurrentHours >= sunriseHours ) {\n            return utcCurrentHours < sunsetHours;\n        } \n\n        return false;\n    }\n};\n// END SUNRISETCALC\n\n// Converts the time Hours.MinutesFraction to HH:MM\n// Parameter - time, i.e. 6.78\n// Returns - time, i.e. 06:47\nvar getTimeStr = function(time) {\n    var result = \"\";\n    var Hour = Math.floor(time);\n    var Min = Math.round((time % 1) * 60, 0);\n    if (Min == 60) {\n        Hour = Hour + 1;\n        Min = 0;\n    }\n    Hour = (Hour < 10) ? \"0\" + Hour : Hour\n    Min = (Min < 10) ? \"0\" + Min : Min\n    result = Hour + \":\" + Min;\n    return result;\n}\n\n// Calculates the time difference in HH:MM\n// Parameter:\n// start - start time HH:MM\n// end - end time HH:MM\nvar getTimeDiff = function(starttime,endtime){\n    var t1 = starttime.split(':'), t2 = endtime.split(':');\n    var d1 = new Date(1970, 1, 1, t1[0], t1[1]),\n    d2 = new Date(1970, 1, 1, t2[0], t2[1]);\n    var difftime = new Date(d2 - d1);\n    var hours = difftime.getUTCHours()\n    hours = (hours < 10) ? \"0\" + hours : hours;\n    var minutes = difftime.getUTCMinutes();\n    minutes = (minutes < 10) ? \"0\" + minutes : minutes;\n    if (DEBUG) node.warn(hours + \":\" + minutes);\n    return  hours + \":\" + minutes;\n}\n\n// getDaylightInfo(53.636470, 9.798251)\nvar getDaylightInfo = function(lat,lon) {\n    if (DEBUG) node.warn(\"lat=\" + lat + \", lon=\" + lon)\n    var result = {};\n    var now = new Date();\n    var nowdate = now.getFullYear() + \"-\"+ (now.getMonth()+1) + \"-\"+ now.getDate();\n    var tzoffset = (now.getTimezoneOffset() / 60) * -1;\n    var location = new SunriseSunset( now.getFullYear(), now.getMonth() + 1, now.getDate(), lat, lon);\n    result.sunrise = getTimeStr(location.sunriseLocalHours(tzoffset));\n    result.sunset = getTimeStr(location.sunsetLocalHours(tzoffset));\n    result.daylight = getTimeDiff(result.sunrise, result.sunset);\n    if (DEBUG) node.warn(tzoffset + \",\"+ nowdate + \":\" + result.sunrise + \" - \"+ result.sunset + \" = \" + result.daylight);\n    return result;\n}\n\nif (DEBUG) node.warn(msg.payload);\n\n// Get the daylight info\nmsg.payload = getDaylightInfo(msg.payload.lat, msg.payload.lon);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 200,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "cbbc34ba.7cca08",
+        "type": "tab",
+        "label": "WASC-Info",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "cca289e3.fe1b08",
+        "type": "ui_template",
+        "z": "cbbc34ba.7cca08",
+        "d": true,
+        "group": "ad9683ba.515d",
+        "name": "KeyDates List",
+        "order": 1,
+        "width": "0",
+        "height": "0",
+        "format": "<div style=\"margin: 0 0 0 -40px;\">\n\t<ul>\n\t\t<li ng-repeat=\"itemdate in msg.payload track by $index\"\n\t\t\tstyle=\"list-style-type: none;\">\n\t\t\t<label>\n\t\t\t\t<p ng-model=\"$parent.itemdate\" value=\"{{itemdate}}\" name=\"data\">{{itemdate}}</p>\n\t\t\t\t<hr>\n\t\t\t</label>\n\t\t</li>\n\t</ul>\n</div>\n",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": false,
+        "templateScope": "local",
+        "x": 1000,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "d1518db.a0d5c7",
+        "type": "comment",
+        "z": "cbbc34ba.7cca08",
+        "name": "WASC-Info - Tab Info",
+        "info": "Display various information- brief description.\n\nDaylight information from the general information of the HTTP API response from GetAllUsedDevices. No Domoticz device used.\n\nDates shows a list in a ui_template with data from a roomplan (idx=4).\n\nVersion information is shown in a ui_text with data taken from global context version (global.version).\n",
+        "x": 120,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "b4af4877.fe5428",
+        "type": "inject",
+        "z": "cbbc34ba.7cca08",
+        "name": "Set Version",
+        "topic": "",
+        "payload": "version",
+        "payloadType": "global",
+        "repeat": "",
+        "crontab": "00 01 * * *",
+        "once": false,
+        "onceDelay": "0.2",
+        "x": 130,
+        "y": 1040,
+        "wires": [
+            [
+                "53a686c7.3046e8"
+            ]
+        ]
+    },
+    {
+        "id": "59ddc15e.85db6",
+        "type": "ui_text",
+        "z": "cbbc34ba.7cca08",
+        "group": "d07c39a.d7dc3c8",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "name": "Version",
+        "label": "Web App Site Control",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 1240,
+        "y": 1040,
+        "wires": []
+    },
+    {
+        "id": "e3ce468b.74d6b8",
+        "type": "comment",
+        "z": "cbbc34ba.7cca08",
+        "name": "Version Information",
+        "info": "",
+        "x": 130,
+        "y": 1000,
+        "wires": []
+    },
+    {
+        "id": "1e79f735.a3a9a9",
+        "type": "comment",
+        "z": "cbbc34ba.7cca08",
+        "name": "Daylight Information - Group Daylight. Update @0100.",
+        "info": "",
+        "x": 240,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "1bb5a90b.11ebd7",
+        "type": "ui_text",
+        "z": "cbbc34ba.7cca08",
+        "group": "a2c03acf.b0b688",
+        "order": 3,
+        "width": "0",
+        "height": "0",
+        "name": "Daylight Information",
+        "label": "Tageslicht (Std)",
+        "format": "{{msg.payload.sunrise}} - {{msg.payload.sunset}} ({{msg.payload.daylight}})",
+        "layout": "row-spread",
+        "x": 1020,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "d5fd9315.1cdfc",
+        "type": "ui_text",
+        "z": "cbbc34ba.7cca08",
+        "group": "a2c03acf.b0b688",
+        "order": 2,
+        "width": "0",
+        "height": "0",
+        "name": "Today + WeekNr",
+        "label": "Heute",
+        "format": "{{msg.payload.date}} (KW {{msg.payload.weeknr}})",
+        "layout": "row-spread",
+        "x": 1010,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "52936774.e19cb8",
+        "type": "inject",
+        "z": "cbbc34ba.7cca08",
+        "name": "Inject Location Lat/Lon",
+        "topic": "",
+        "payload": "location",
+        "payloadType": "global",
+        "repeat": "",
+        "crontab": "00 01 * * *",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 170,
+        "y": 140,
+        "wires": [
+            [
+                "e8320c7e.f5996",
+                "bd5f3be6.9ee638"
+            ]
+        ]
+    },
+    {
+        "id": "13ff03fd.ac196c",
+        "type": "function",
+        "z": "cbbc34ba.7cca08",
+        "name": "Get KeyDates",
+        "func": "// Get key dates from json array read from file wasc-keydates.json:\n// [ {\"name\":\"keydate1\",\"dates\":[\"01-01-2020\",\"01-03-2020\"]},{\"name\":\"keydate2\",\"dates\":[\"01-11-2020\",\"01-12-2020\"]} ] \n\n// const DEBUG = global.get(\"debug\");\nconst DEBUG = false;\n\nconst DATENOW = global.get(\"clock\").dateyyyymmdd;\n\n// Get the key dates json array from the msg payload\nvar keydatesIn = msg.payload;\n\n// Create new array holding the key dates found\n// The array contains as entries a string with \"date name;(in x days)\"\n// The \"date name\" must be split from the when (i.e. ;(in x days) by ; delimiter\nvar keydatesOut = [];\n\n// Get the key dates \nkeydatesIn.forEach(function(keydate){\n    if (DEBUG) node.warn(keydate.name + \",dates:\" + keydate.dates);  \n    // Check if the keydate(s) should be displayed\n    if (keydate.display === false) return\n    // Create an array with the dates from the key \"dates\"\n    const arrdates = keydate.dates;\n    if (DEBUG) node.warn(\"Number of keydates:\" + arrdates.length);\n    // set flag datefound so that only the first date is found, i.e. >= today\n    var datefound = false;\n    // get the key date (as item) from the dates array\n    arrdates.forEach(function(item){\n        var itemorg = item;\n        // need to convert the item from dd-mm-yyyy to yyyy-mm-dd\n        var itemarr = item.split(\"-\");\n        item = itemarr[2]+\"-\"+itemarr[1]+\"-\"+itemarr[0];\n        // if (DEBUG) node.warn(item);\n        // check if the keydate is equal or greater today using dateformat yyyy-mm-dd\n        if (item >= DATENOW && datefound === false) {\n            // item found - notify and set the flag found to avoid multiple dates\n            datefound = true;\n            var daystart = new Date(DATENOW);\n            var dayend = new Date(item);\n            var daysdiff = (dayend - daystart) / (1000 * 60 * 60 * 24);\n            if (DEBUG) node.warn(keydate.name + \":\" + dayend + \"=\" + daystart + \"=\" + daysdiff)\n            // Create the data entry \"date name;(when)\"\n            var data = \"\";\n            if (daysdiff > 1) {\n                data = itemorg + \" \" + keydate.name + \";(in \" + daysdiff + \" Tage)\";\n            } else if (daysdiff === 1) {\n                data = itemorg + \" \" + keydate.name + \";(Morgen)\";\n            } else if (daysdiff === 0) {\n                data = itemorg + \" \" + keydate.name + \";(Heute)\";\n            } else {\n                data = itemorg + \" \" + keydate.name + \";(Fehler. Tage=\" + daysdiff + \")\";\n            }\n            // add the device info\n            keydatesOut.push(data);\n            if (DEBUG) node.warn(data);\n        }\n    });\n});\n\n// Sort the entries by date. The entry strig is sliced to get the date from the first 11 chars.\n// An entry must in format: DD-MM-YYYY Name\nkeydatesOut.sort(function(a,b) {\n    a = a.slice(0, 10);\n    b = b.slice(0, 10);\n    a = a.split('-').reverse().join('');\n    b = b.split('-').reverse().join('');\n    // node.warn(a.localeCompare(b));\n    return a.localeCompare(b);\n});\n\n// Assign the devices array to the payload\nmsg.payload = keydatesOut;\n\n// Return the array with the devices\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 700,
+        "y": 300,
+        "wires": [
+            [
+                "134e73e9.4eaf3c"
+            ]
+        ]
+    },
+    {
+        "id": "3b330a36.f321b6",
+        "type": "comment",
+        "z": "cbbc34ba.7cca08",
+        "name": "Key Dates (Termine) - Group Termine. Update @0100.",
+        "info": "The key dates are read from a file located in the folder:\n`/home/pi/wasc/wasc-keydates.json`\n\nThe content is json format.\nThe json array contains key:value pairs for each of the key dates. Example:\n`[{\"name\": \"Bio-Tonne Pi\",\"display\": true,        \"dates\": [\"09-01-2020\",...\"23-12-2020\"]},...]`.\n\nSet the flag display to false if the key date should not be listed in the html template list.\n",
+        "x": 240,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "e8320c7e.f5996",
+        "type": "subflow:98793125.02979",
+        "z": "cbbc34ba.7cca08",
+        "name": "Set Daylight Info",
+        "env": [],
+        "x": 400,
+        "y": 200,
+        "wires": [
+            [
+                "1bb5a90b.11ebd7"
+            ]
+        ]
+    },
+    {
+        "id": "f8dba8de.bc1598",
+        "type": "inject",
+        "z": "cbbc34ba.7cca08",
+        "name": "Init Location Lat/Lon",
+        "topic": "",
+        "payload": "location",
+        "payloadType": "global",
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.3",
+        "x": 160,
+        "y": 200,
+        "wires": [
+            [
+                "bd5f3be6.9ee638",
+                "e8320c7e.f5996"
+            ]
+        ]
+    },
+    {
+        "id": "345c76b6.ce474a",
+        "type": "file in",
+        "z": "cbbc34ba.7cca08",
+        "name": "Read Key Dates",
+        "filename": "/home/pi/wasc/wasc-keydates.json",
+        "format": "utf8",
+        "chunk": false,
+        "sendError": false,
+        "encoding": "none",
+        "x": 400,
+        "y": 300,
+        "wires": [
+            [
+                "a573ffeb.58788"
+            ]
+        ]
+    },
+    {
+        "id": "3e25aa41.ae5046",
+        "type": "inject",
+        "z": "cbbc34ba.7cca08",
+        "name": "Inject Key Dates",
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "repeat": "",
+        "crontab": "00 01 * * *",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 150,
+        "y": 300,
+        "wires": [
+            [
+                "345c76b6.ce474a"
+            ]
+        ]
+    },
+    {
+        "id": "a573ffeb.58788",
+        "type": "json",
+        "z": "cbbc34ba.7cca08",
+        "name": "",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 550,
+        "y": 300,
+        "wires": [
+            [
+                "13ff03fd.ac196c"
+            ]
+        ]
+    },
+    {
+        "id": "bd5f3be6.9ee638",
+        "type": "subflow:b5f62f16.f2a0e",
+        "z": "cbbc34ba.7cca08",
+        "name": "Set Date & WeekNr",
+        "env": [],
+        "x": 410,
+        "y": 140,
+        "wires": [
+            [
+                "d5fd9315.1cdfc"
+            ]
+        ]
+    },
+    {
+        "id": "2fbdf5ed.2b79aa",
+        "type": "comment",
+        "z": "cbbc34ba.7cca08",
+        "name": "Group Energy (Energie). Update  @5min. Chart 1-day-view.",
+        "info": "Display energy data.\nInject every n minutes (set to 5).\n\n**Energy House from volkszaehler**\n_Steps_\nSet the url to obtain data for the last n mins till now, from the vz server.\n\nFrom the http response, set the msg.payload from the property msg.payload.data.average and the msg.template label color to red or white depending if the msg.payload exceded a threshold.\nSend the msg to the ui_template and the ui_text only if the value has changed.\n\n**Energy MakeLab from RaspMatic**\n_Steps_\nSet the device datapoint holding the property to get which is the POWER.\nRequest the POWER from the raspmatic server using subflow \"rm device dp\".\nAssing the returned payload to the ui_text showing the makelab energy in w.\n\nUpdate the ui_text \"Energy Last Update\" with the time.\n",
+        "x": 250,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "2e15240e.aebacc",
+        "type": "inject",
+        "z": "cbbc34ba.7cca08",
+        "name": "Inject Energy",
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "repeat": "600",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "x": 140,
+        "y": 440,
+        "wires": [
+            [
+                "a24caceb.fdc7d",
+                "c1935540.4c6208"
+            ]
+        ]
+    },
+    {
+        "id": "5b6853d.b966cac",
+        "type": "subflow:83c3e25a.f926b",
+        "z": "cbbc34ba.7cca08",
+        "name": "",
+        "env": [],
+        "x": 390,
+        "y": 480,
+        "wires": [
+            [
+                "c97b2f3a.f00c9"
+            ]
+        ]
+    },
+    {
+        "id": "c1935540.4c6208",
+        "type": "function",
+        "z": "cbbc34ba.7cca08",
+        "name": "Set URL vz",
+        "func": "// Set the url to obtain volkszaehler data\n// Data range from-1minute to now\n\nconst DEBUG = global.get(\"DEBUG\");\n//const DEBUG = true;\n\n// Define the data range\nconst datafrom = \"5+minutes+ago\";\nconst datato = \"now\";\n\n// http://vzip/middleware.php/data/5b8ea2a0-b342-11e8-bec6-15c040e6d041.json?from=1+minutes+ago&to=now\nmsg.url = global.get(\"vzip\") + \"/middleware.php/data/5b8ea2a0-b342-11e8-bec6-15c040e6d041.json?from=\"+datafrom+\"&to=\"+datato;\nif (DEBUG === true) node.warn(msg.url);\n// node.warn(msg.url);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 390,
+        "y": 440,
+        "wires": [
+            [
+                "5b6853d.b966cac"
+            ]
+        ]
+    },
+    {
+        "id": "3566e46c.f5803c",
+        "type": "subflow:aca7a4e9.b87e18",
+        "z": "cbbc34ba.7cca08",
+        "name": "Get Device Datapoint",
+        "env": [],
+        "x": 420,
+        "y": 620,
+        "wires": [
+            [
+                "3fe08b2f.4a7f74"
+            ]
+        ]
+    },
+    {
+        "id": "a24caceb.fdc7d",
+        "type": "change",
+        "z": "cbbc34ba.7cca08",
+        "name": "Set MakeLab POWER",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "1418",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "POWER",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 420,
+        "y": 580,
+        "wires": [
+            [
+                "3566e46c.f5803c"
+            ]
+        ]
+    },
+    {
+        "id": "53a686c7.3046e8",
+        "type": "ui_template",
+        "z": "cbbc34ba.7cca08",
+        "group": "d07c39a.d7dc3c8",
+        "name": "Set Label Style",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "format": "<!--\nSet the background color & text size of the ui_text label \"Aktualisiert\".\n-->\n<style>\n    .nr-dashboard-widget-Web_App_Site_Control {\n        background-color:#FFFFFF !important;\n        color:#0000FF !important;\n        font-size: small !important;\n    }\n</style>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "templateScope": "local",
+        "x": 1000,
+        "y": 1040,
+        "wires": [
+            [
+                "59ddc15e.85db6"
+            ]
+        ]
+    },
+    {
+        "id": "c3f0bb5e.f2af78",
+        "type": "comment",
+        "z": "cbbc34ba.7cca08",
+        "name": "Group ElbePegel. Update  @10min. Chart 1-day-view.",
+        "info": "Get, every 10 minutes, the real river \"Elbe\" (at position Wedel Schulau in Germany) level data from \npegelonline.wsv.de.\nhttps://www.pegelonline.wsv.de/webservices/rest-api/v2/stations/SCHULAU.json?includeTimeseries=true&includeCurrentMeasurement=true\n\nEach of the measurements have a msg, but these are not used - just in case for any other ideas.\n\nParse the HTTP response:\nElbe Abs NHN\nElbe Rel PNP\nTide\n",
+        "x": 240,
+        "y": 760,
+        "wires": []
+    },
+    {
+        "id": "844b25ab.3a8e28",
+        "type": "change",
+        "z": "cbbc34ba.7cca08",
+        "name": "Set URL Request",
+        "rules": [
+            {
+                "t": "set",
+                "p": "url",
+                "pt": "msg",
+                "to": "https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations/SCHULAU.json?includeTimeseries=true&includeCurrentMeasurement=true",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 410,
+        "y": 800,
+        "wires": [
+            [
+                "51179872.918978"
+            ]
+        ]
+    },
+    {
+        "id": "51179872.918978",
+        "type": "http request",
+        "z": "cbbc34ba.7cca08",
+        "name": "Send Request",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": false,
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 400,
+        "y": 840,
+        "wires": [
+            [
+                "fbeced61.66ccb"
+            ]
+        ]
+    },
+    {
+        "id": "fbeced61.66ccb",
+        "type": "function",
+        "z": "cbbc34ba.7cca08",
+        "name": "Set ElbePegel Messages",
+        "func": "// Set the river elbe tide measurement from the HTTP API response:\n// https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations/SCHULAU.json?includeTimeseries=true&includeCurrentMeasurement=true\n// Each of the measurements have a msg, but these are not used - just in case for any other ideas.\n// msgriverlevelrelpnp,msgriverlevelabsnhn,msgrivertide,msgtimestamp\n// Instead a the msgsummary and msgriverlevelabsnhn are returned.\n\nconst DEBUG = global.get(\"debug\");\n\n// Get the Timestamp from the timeseries:  \"timestamp\": \"2020-04-04T10:16:00+02:00\"\n// And convert to HH:MM\nvar tscm = msg.payload.timeseries[0].currentMeasurement.timestamp;\nvar ts = new Date(tscm);\nvar hh = ts.getHours();\nvar mm = ts.getMinutes(); \nvar ss = ts.getSeconds(); \nif(hh<10) hh='0'+hh;\nif(mm<10) mm='0'+mm;\nif(ss<10) ss='0'+ss;\nvar msgtimestamp = {};\nmsgtimestamp.topic = \"Aktualisiert\";\nmsgtimestamp.payload = hh + \":\" + mm;\n\n// Msg Relative PNP in cm\nvar riverlevelrelpnp = msg.payload.timeseries[0].currentMeasurement.value;\nvar msgriverlevelrelpnp = {};\nmsgriverlevelrelpnp.topic = \"Rel PNP\";     //\"Relative PNP in cm\";\nmsgriverlevelrelpnp.payload = riverlevelrelpnp.toString();\n\n// Msg PNP (m. ü. NHN) in m - reference value\nvar riverlevelpnp = msg.payload.timeseries[0].gaugeZero.value;\nvar msgriverlevelpnp = {};\nmsgriverlevelpnp.topic = \"PNP m. ü. NHN\";\nmsgriverlevelpnp.payload = riverlevelpnp.toString();\n\n// Msg Absolute m ü NHN in cm\nvar riverlevelabsnhn = parseInt(riverlevelrelpnp,10) + (parseInt(riverlevelpnp) * 100);\nvar msgriverlevelabsnhn = {};\nmsgriverlevelabsnhn.topic = \"Abs NHN\"; //\"Absolute ü. NHN in cm\";\nmsgriverlevelabsnhn.payload = riverlevelabsnhn;\n\n// Msg Tide\n// Uses measurement trend: 1=flut,-1=ebbe,0=no change,999=no info or error\nvar trend = msg.payload.timeseries[0].currentMeasurement.trend;\nrivertide = (trend === 1) ? \"Flut\" : \"Ebbe\";\nvar msgrivertide = {};\nmsgrivertide.topic = \"Tide\";\nmsgrivertide.payload = rivertide;\n\n// Msg Summary\nvar msgsummary = {};\nmsgsummary.topic = \"Tide\";\nmsgsummary.payload = \"<table>\" +\n    \"<tr><td>\" + msgriverlevelabsnhn.topic + \"</td><td align=\\\"right\\\">\" + msgriverlevelabsnhn.payload + \" cm</td></tr>\" +\n    \"<tr><td>\" + msgriverlevelrelpnp.topic + \"</td><td align=\\\"right\\\">\" + msgriverlevelrelpnp.payload + \" cm</td></tr>\" +\n    \"<tr><td>\" + \"\" + \"</td><td align=\\\"right\\\">\" + msgrivertide.payload + \"</td></tr></table>\";\n\n// Abs ü. NHN, Delta Tide, Flut|Ebbe\nnode.status({text:\"Abs NHN:\" + riverlevelabsnhn + \",\" + rivertide});\n\n// Not Used BUT msgriverlevelabsnhn and msgsummary instead\n// return [msgriverlevelrelpnp,msgriverlevelabsnhn,msgrivertide,msgtimestamp,msgsummary];\nreturn [msgsummary,msgriverlevelabsnhn,msgtimestamp];\n",
+        "outputs": 3,
+        "noerr": 0,
+        "x": 730,
+        "y": 840,
+        "wires": [
+            [
+                "6f711e09.4c60b"
+            ],
+            [
+                "f42f260a.cb4bd8"
+            ],
+            [
+                "fc21d917.779338"
+            ]
+        ]
+    },
+    {
+        "id": "39747b7c.c9c174",
+        "type": "inject",
+        "z": "cbbc34ba.7cca08",
+        "name": "Inject Request pegelonline",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "repeat": "600",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.1",
+        "x": 180,
+        "y": 800,
+        "wires": [
+            [
+                "844b25ab.3a8e28"
+            ]
+        ]
+    },
+    {
+        "id": "bab1d9c.b0dc328",
+        "type": "inject",
+        "z": "cbbc34ba.7cca08",
+        "name": "Init Version",
+        "topic": "",
+        "payload": "version",
+        "payloadType": "global",
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.1",
+        "x": 130,
+        "y": 1080,
+        "wires": [
+            [
+                "53a686c7.3046e8"
+            ]
+        ]
+    },
+    {
+        "id": "ea854760.7924e8",
+        "type": "inject",
+        "z": "cbbc34ba.7cca08",
+        "name": "Init Key Dates",
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.1",
+        "x": 140,
+        "y": 340,
+        "wires": [
+            [
+                "345c76b6.ce474a"
+            ]
+        ]
+    },
+    {
+        "id": "f42f260a.cb4bd8",
+        "type": "ui_chart",
+        "z": "cbbc34ba.7cca08",
+        "name": "Chart Abs NHN",
+        "group": "69eee94f.bdf098",
+        "order": 5,
+        "width": "3",
+        "height": "3",
+        "label": "",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "HH:mm",
+        "interpolate": "bezier",
+        "nodata": "",
+        "dot": false,
+        "ymin": "-250",
+        "ymax": "250",
+        "removeOlder": "1",
+        "removeOlderPoints": "",
+        "removeOlderUnit": "86400",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e",
+            "#2ca02c",
+            "#98df8a",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "useOldStyle": false,
+        "outputs": 1,
+        "x": 1000,
+        "y": 820,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "6f711e09.4c60b",
+        "type": "ui_template",
+        "z": "cbbc34ba.7cca08",
+        "group": "69eee94f.bdf098",
+        "name": "ElbePegel Overview",
+        "order": 8,
+        "width": "3",
+        "height": "3",
+        "format": "<style>\n    .nr-dashboard-widget-Overview {\n        background-color:#FFFFFF !important;\n        color:#0000FF !important;\n        font-size: small !important;\n    }\n</style>\n<div ng-bind-html=\"msg.payload\"></div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "templateScope": "local",
+        "x": 1020,
+        "y": 780,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "4f6f5349.b6109c",
+        "type": "inject",
+        "z": "cbbc34ba.7cca08",
+        "name": "Clear Chart",
+        "topic": "",
+        "payload": "[]",
+        "payloadType": "json",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 1230,
+        "y": 820,
+        "wires": [
+            [
+                "f42f260a.cb4bd8"
+            ]
+        ]
+    },
+    {
+        "id": "ba13f8b5.e3fd28",
+        "type": "ui_chart",
+        "z": "cbbc34ba.7cca08",
+        "name": "Chart Energy House",
+        "group": "f6eb3415.1ad728",
+        "order": 5,
+        "width": "3",
+        "height": "3",
+        "label": "",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "HH:mm",
+        "interpolate": "step",
+        "nodata": "",
+        "dot": false,
+        "ymin": "0",
+        "ymax": "1500",
+        "removeOlder": "1",
+        "removeOlderPoints": "",
+        "removeOlderUnit": "86400",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e",
+            "#2ca02c",
+            "#98df8a",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "useOldStyle": false,
+        "outputs": 1,
+        "x": 1020,
+        "y": 480,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "fa653dba.74675",
+        "type": "ui_template",
+        "z": "cbbc34ba.7cca08",
+        "group": "f6eb3415.1ad728",
+        "name": "Energy Overview",
+        "order": 8,
+        "width": "3",
+        "height": "3",
+        "format": "<div ng-bind-html=\"msg.payload\"></div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "templateScope": "local",
+        "x": 1010,
+        "y": 440,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "3fe08b2f.4a7f74",
+        "type": "change",
+        "z": "cbbc34ba.7cca08",
+        "name": "Set flow.energymakeLab",
+        "rules": [
+            {
+                "t": "set",
+                "p": "energymakelab",
+                "pt": "flow",
+                "to": "payload.POWER",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 430,
+        "y": 660,
+        "wires": [
+            [
+                "4824c3c4.dd9ffc"
+            ]
+        ]
+    },
+    {
+        "id": "c97b2f3a.f00c9",
+        "type": "change",
+        "z": "cbbc34ba.7cca08",
+        "name": "Set flow.energyhouse",
+        "rules": [
+            {
+                "t": "set",
+                "p": "energyhouse",
+                "pt": "flow",
+                "to": "payload.data.average",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 420,
+        "y": 520,
+        "wires": [
+            [
+                "4824c3c4.dd9ffc"
+            ]
+        ]
+    },
+    {
+        "id": "4824c3c4.dd9ffc",
+        "type": "function",
+        "z": "cbbc34ba.7cca08",
+        "name": "Set Energy Messages",
+        "func": "// Define the text for the ui_text node energy overview\n// Energy House, MakeLab, Timestamp\n// The energy data is taken from flow context and displayed as rounded numbers\n// The time stamp is taken from global context clock\n// The flow context can be used to publish the energy data as mqtt messages\nconst DEBUG = flow.get(\"DEBUG\");\n\nmsgenergyhouse = {};\nmsgenergyhouse.topic = \"Haus\";\nmsgenergyhouse.payload = Math.round(flow.get(\"energyhouse\"));\n\nmsgenergymakelab = {};\nmsgenergymakelab.topic = \"MakeLab\";\nmsgenergymakelab.payload = Math.round(flow.get(\"energymakelab\"));\n\nmsgenergytimestamp = {};\nmsgenergytimestamp.topic = \"Aktualisiert\";\nflow.set(\"energytimestamp\",global.get(\"clock\").timehhmm);\nmsgenergytimestamp.payload = flow.get(\"energytimestamp\");\n\nmsgmqtt = {};\nmsgmqtt.topic = \"wasc/energy\";\nmsgmqtt.payload = {\n    \"house\":msgenergyhouse.payload,\n    \"makelab\":msgenergymakelab.payload,\n    \"timestamp\":msgenergytimestamp.payload\n};\n\n// Define the msg topic and payload to be used by the ui_template node\nmsg.topic = \"Energy\";\nmsg.payload = \"<table>\" +\n    \"<tr><td>\" + msgenergyhouse.topic + \"</td><td align=\\\"right\\\">\" + msgenergyhouse.payload + \" W</td></tr>\" +\n    \"<tr><td>\" + msgenergymakelab.topic + \"</td><td align=\\\"right\\\">\" + msgenergymakelab.payload + \" W</td></tr></table>\";\n\nnode.status({text:\"H:\"+msgenergyhouse.payload+\",M:\"+msgenergymakelab.payload+\",T:\"+msgenergytimestamp.payload});\n\nreturn [msg,msgenergyhouse,msgenergytimestamp,msgmqtt];\n",
+        "outputs": 4,
+        "noerr": 0,
+        "x": 720,
+        "y": 460,
+        "wires": [
+            [
+                "fa653dba.74675"
+            ],
+            [
+                "ba13f8b5.e3fd28"
+            ],
+            [
+                "f3e9c42c.24bcd8"
+            ],
+            [
+                "fff785b7.0137a8"
+            ]
+        ]
+    },
+    {
+        "id": "f3e9c42c.24bcd8",
+        "type": "ui_template",
+        "z": "cbbc34ba.7cca08",
+        "group": "f6eb3415.1ad728",
+        "name": "Set Label Style",
+        "order": 6,
+        "width": 0,
+        "height": 0,
+        "format": "<!--\nSet the background color & text size of the ui_text label \"Aktualisiert\".\n-->\n<style>\n    .nr-dashboard-widget-Aktualisiert {\n        background-color:#404040 !important;\n        font-size: small !important;\n    }\n</style>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": false,
+        "templateScope": "local",
+        "x": 1000,
+        "y": 540,
+        "wires": [
+            [
+                "7c1eb672.e641d8"
+            ]
+        ]
+    },
+    {
+        "id": "7c1eb672.e641d8",
+        "type": "ui_text",
+        "z": "cbbc34ba.7cca08",
+        "group": "f6eb3415.1ad728",
+        "order": 7,
+        "width": 0,
+        "height": 0,
+        "name": "Energy Last Update",
+        "label": "Aktualisiert",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 1200,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "fc21d917.779338",
+        "type": "ui_template",
+        "z": "cbbc34ba.7cca08",
+        "group": "69eee94f.bdf098",
+        "name": "Set Label Style",
+        "order": 6,
+        "width": 0,
+        "height": 0,
+        "format": "<!--\nSet the background color & text size of the ui_text label \"Aktualisiert\".\n-->\n<style>\n    .nr-dashboard-widget-Aktualisiert {\n        background-color:#404040 !important;\n        font-size: small !important;\n    }\n</style>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": false,
+        "templateScope": "local",
+        "x": 1000,
+        "y": 880,
+        "wires": [
+            [
+                "2544aefa.c52dc2"
+            ]
+        ]
+    },
+    {
+        "id": "2544aefa.c52dc2",
+        "type": "ui_text",
+        "z": "cbbc34ba.7cca08",
+        "group": "69eee94f.bdf098",
+        "order": 7,
+        "width": 0,
+        "height": 0,
+        "name": "ElbePegel Last Update",
+        "label": "Aktualisiert",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 1200,
+        "y": 880,
+        "wires": []
+    },
+    {
+        "id": "3fd4f2f3.ec95fe",
+        "type": "inject",
+        "z": "cbbc34ba.7cca08",
+        "name": "Clear Chart",
+        "topic": "",
+        "payload": "[]",
+        "payloadType": "json",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 1230,
+        "y": 480,
+        "wires": [
+            [
+                "ba13f8b5.e3fd28"
+            ]
+        ]
+    },
+    {
+        "id": "fff785b7.0137a8",
+        "type": "mqtt out",
+        "z": "cbbc34ba.7cca08",
+        "name": "",
+        "topic": "wasc/energy",
+        "qos": "",
+        "retain": "",
+        "broker": "48368190.9c6bb",
+        "x": 990,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "39fbac25.e68ae4",
+        "type": "comment",
+        "z": "cbbc34ba.7cca08",
+        "name": "Energy House",
+        "info": "",
+        "x": 190,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "7171fb89.1193d4",
+        "type": "comment",
+        "z": "cbbc34ba.7cca08",
+        "name": "Energy MakeLab",
+        "info": "",
+        "x": 200,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "134e73e9.4eaf3c",
+        "type": "function",
+        "z": "cbbc34ba.7cca08",
+        "name": "Create KeyDates List",
+        "func": "// Create ui list (list-type multi-line-narrow) from notes file content\n// Convert id,subject to ui_list title (first line) & description (second line)\n\n// Get the debug flag\nconst DEBUG = flow.get(\"debug\");\n// const DEBUG = true;\n\n// Get the keydates from the flow context\nvar keydates = msg.payload;\nif (keydates === \"\") notes = [];\n\n// Buid ui_list payload\nmsglist = [];\n\n// Add the title & description from the keydates entry \"date name;(when)\"\nkeydates.forEach(function(item){\n    if (DEBUG) node.warn(item);\n    let obj = {};\n    arrItem = item.split(\";\");\n    if (arrItem.length == 2) {\n        obj.title = arrItem[0];\n        obj.description = arrItem[1];\n        msglist.push(obj);\n    }\n});\nif (DEBUG) node.warn(msglist);\n\nmsg.payload = msglist;\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 720,
+        "y": 340,
+        "wires": [
+            [
+                "1d765f96.322d7"
+            ]
+        ]
+    },
+    {
+        "id": "1d765f96.322d7",
+        "type": "ui_list",
+        "z": "cbbc34ba.7cca08",
+        "group": "ad9683ba.515d",
+        "name": "KeyDates List",
+        "order": 1,
+        "width": "6",
+        "height": "5",
+        "lineType": "two",
+        "actionType": "none",
+        "allowHTML": false,
+        "outputs": 0,
+        "topic": "",
+        "x": 1000,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "ad9683ba.515d",
+        "type": "ui_group",
+        "z": "",
+        "name": "Termine",
+        "tab": "54867d23.a2ed64",
+        "order": 2,
+        "disp": true,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "d07c39a.d7dc3c8",
+        "type": "ui_group",
+        "z": "",
+        "name": "Information",
+        "tab": "54867d23.a2ed64",
+        "order": 5,
+        "disp": false,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "a2c03acf.b0b688",
+        "type": "ui_group",
+        "z": "",
+        "name": "Heute",
+        "tab": "54867d23.a2ed64",
+        "order": 1,
+        "disp": false,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "69eee94f.bdf098",
+        "type": "ui_group",
+        "z": "",
+        "name": "Elbe Pegel",
+        "tab": "54867d23.a2ed64",
+        "order": 4,
+        "disp": true,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "f6eb3415.1ad728",
+        "type": "ui_group",
+        "z": "",
+        "name": "Energie",
+        "tab": "54867d23.a2ed64",
+        "order": 3,
+        "disp": true,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "48368190.9c6bb",
+        "type": "mqtt-broker",
+        "z": "",
+        "name": "MQTT Broker",
+        "broker": "localhost",
+        "port": "1883",
+        "clientid": "",
+        "usetls": false,
+        "compatmode": false,
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    },
+    {
+        "id": "54867d23.a2ed64",
+        "type": "ui_tab",
+        "z": "",
+        "name": "Info",
+        "icon": "fa-info-circle",
+        "order": 5,
+        "disabled": false,
+        "hidden": false
+    }
+]

@@ -1,0 +1,117 @@
+[
+    {
+        "id": "8f4c6b76.9e2ae8",
+        "type": "subflow",
+        "name": "rmdev dp id",
+        "info": "",
+        "category": "",
+        "in": [
+            {
+                "x": 40,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "13353523.a270bb"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 780,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "c4c48ed.986d37",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#00FF00"
+    },
+    {
+        "id": "13353523.a270bb",
+        "type": "function",
+        "z": "8f4c6b76.9e2ae8",
+        "name": "dpid: Set URL Device Get State",
+        "func": "// set the url xml-api to get the state for a device\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// The msg.topic holds the device datapoint\nconst deviceid = msg.topic;\n\n// The msg.payload defines optional device datapoints\n// Set as flow context because used by the function getting the datapoints\n// If left blank all datapoints are returned\nflow.set(\"datapoints\",msg.payload);\n\nif (DEBUG) node.warn(\"Topic deviceid:\" + deviceid + \", Payload datapoints:\" + msg.payload)\n\n// ccuip/addons/xmlapi/state.cgi?device_id=1541\nmsg.url = global.get(\"ccuip\") + \"/addons/xmlapi/state.cgi?device_id=\" + deviceid;\n// if (DEBUG === true) node.warn(\"URL:\" + msg.url);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 250,
+        "y": 80,
+        "wires": [
+            [
+                "c81f8c24.63333"
+            ]
+        ]
+    },
+    {
+        "id": "c81f8c24.63333",
+        "type": "http request",
+        "z": "8f4c6b76.9e2ae8",
+        "name": "Request Device State",
+        "method": "GET",
+        "ret": "txt",
+        "paytoqs": false,
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 280,
+        "y": 140,
+        "wires": [
+            [
+                "a55f25aa.2c09e8"
+            ]
+        ]
+    },
+    {
+        "id": "a55f25aa.2c09e8",
+        "type": "function",
+        "z": "8f4c6b76.9e2ae8",
+        "name": "dpid: Correct Datapoints",
+        "func": "// Correct strings in the datapoints XML response.\nvar statelist = msg.payload;\n\n// \"\"\"\" to be replaced to \"\"\nstatelist.replace(\"\\\"\\\"\",\"\");\n// Assign the corrected statelist\nmsg.payload = statelist;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 270,
+        "y": 200,
+        "wires": [
+            [
+                "8c872b57.903868"
+            ]
+        ]
+    },
+    {
+        "id": "8c872b57.903868",
+        "type": "xml",
+        "z": "8f4c6b76.9e2ae8",
+        "name": "Convert XML",
+        "property": "payload",
+        "attr": "",
+        "chr": "",
+        "x": 310,
+        "y": 260,
+        "wires": [
+            [
+                "c4c48ed.986d37"
+            ]
+        ]
+    },
+    {
+        "id": "c4c48ed.986d37",
+        "type": "function",
+        "z": "8f4c6b76.9e2ae8",
+        "name": "dpid: Set Datapoints ise_id",
+        "func": "// Get all device or selected datapoints depending flow context \"datapoints\".\n// If empty all datapoints are returned else the datapoints as defined as CVS with their type.\n// Types examples are LOW_BAT, STATE\n// The msg returns a json object with datapoints TYPE:VALUE:\n// {STATE:\"1\", LOW_BAT:\"false\", ...}\n// Get a datapoint from the payload, i.e. msg.payload.STATE which gives \"1\"\n\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// define the JSON object1rray with the datapoints\n// {ISE_ID:\"NNNN\", STATE:\"false\" ...}, \nvar devicedatapoints = {};\n\n// Get all datapoints\nfunction getDatapoints(devicechannels){\n    var result = {};\n    // loop over the devicechannels datapoints\n    devicechannels.forEach(function(channel) {\n        // get the datapoints\n        datapoints = channel.datapoint;\n        if (datapoints !== undefined) {\n            // if (DEBUG) node.warn(\"Channel datapoints=\" + datapoints.length);   //\"Channel datapoints=8\"\n            // get the channel datapoints\n            datapoints.forEach(function(datapoint){\n                devicedatapoints[datapoint.$.type] = datapoint.$.ise_id;\n                if (DEBUG) node.warn(\"Datapoint=\" + datapoint.$.ise_id + \":\" + datapoint.$.type + \"=\" + datapoint.$.value);\n            });\n        }\n    });\n    return result;\n}\n\n// get the datapoint ise_id and set the topic & flow context datapoint type to the datapoint ise_id\nfunction getDatapointIseId(devicechannels,datapointtype){\n    var result = {};\n    // loop over the devicechannels datapoints\n    devicechannels.forEach(function(channel) {\n        // get the datapoints\n        datapoints = channel.datapoint;\n        if (datapoints !== undefined) {\n            // if (DEBUG) node.warn(\"Channel datapoints=\" + datapoints.length);   //\"Channel datapoints=8\"\n            // get the channel datapoints\n            datapoints.forEach(function(datapoint){\n                if (datapoint.$.type == datapointtype.toUpperCase()) {\n                    devicedatapoints[datapoint.$.type] = datapoint.$.ise_id;\n                    if (DEBUG) node.warn(\"Datapoint=\" + datapoint.$.ise_id + \":\" + datapoint.$.type + \"=\" + datapoint.$.value);\n                }\n            });\n        }\n    });\n    return result;\n}\n\n// get the single device channels from xml into json format\ndevicechannels = msg.payload.state.device[0].channel;\ndevicename = msg.payload.state.device[0].$.name;\nif (DEBUG) node.warn(\"Device \" + devicename + \", channels=\" + devicechannels.length);   //\"Device channels=8\"\n// if (DEBUG) node.warn(devicechannels);   //8 objects\n\n// Check the flow context datapoints\n// split the flow context \"datapoints\" in an array\n// if (DEBUG) node.warn(\"Search Datapoints:\" + flow.get(\"datapoints\"));\nif (flow.get(\"datapoints\") === \"\") {\n    getDatapoints(devicechannels);\n}\nelse {\n    searchdatapoints = flow.get(\"datapoints\").split(\",\");\n    searchdatapoints.forEach(function(datapoint){\n        getDatapointIseId(devicechannels,datapoint);\n    });\n}\n\nmsg.payload = devicedatapoints;\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 560,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    }
+]

@@ -1,0 +1,157 @@
+[
+    {
+        "id": "61f978e2.8ebfb8",
+        "type": "subflow",
+        "name": "huelight bri",
+        "info": "Set a **Hue Light** brightness.\n\n**GLOBAL CONTEXT**\n\nThe Hue light state is set by using a HTTP API request to the Hue Bridge.\nRequired are the global context:\n - hueip - the IP address of the Hue Bridge\n - hueusername - the api user name\n\n**INPUT**\n\n**Message Topic**\n\nThe Hue light index, i.e. 1 or 2 etc.\n\n**Message Payload**\n\nThe brightness value: 0 - 254\n\n**OUTPUT**\n\n1 State on = true or false\n\n2 State Bri = 0 - 254 \n\n3 HTTP Result = \"OK\" or \"ERR\".\n",
+        "category": "",
+        "in": [
+            {
+                "x": 60,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "33d00d67.2ac4d2"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 800,
+                "y": 60,
+                "wires": [
+                    {
+                        "id": "a045e3fb.c28b9",
+                        "port": 0
+                    }
+                ]
+            },
+            {
+                "x": 800,
+                "y": 120,
+                "wires": [
+                    {
+                        "id": "a045e3fb.c28b9",
+                        "port": 1
+                    }
+                ]
+            },
+            {
+                "x": 800,
+                "y": 180,
+                "wires": [
+                    {
+                        "id": "a045e3fb.c28b9",
+                        "port": 2
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#FDF0C2",
+        "status": {
+            "x": 580,
+            "y": 180,
+            "wires": [
+                {
+                    "id": "803c8353.503a9",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "33d00d67.2ac4d2",
+        "type": "function",
+        "z": "61f978e2.8ebfb8",
+        "name": "Set URL Bri",
+        "func": "/*\nSet the brightness (bri) of a light on or off using http api PUT request. NOTE THE PUT REQUEST and not GET!\nThe msg.url sets the bri of the light:\nhttp://hue-bridge-ip/api/username/lights/lightnr/state\nThe msg.payload (as JSON object) is used as the body for the http api request.\n{\"on\":true, \"bri\": 0-254}\nNOTE: the msg.payload must not be set in \"\"!\nUses global.context: hueip, hueusername, debug\n*/\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// Set the device id 1..N from the msg.topic\nconst deviceid = msg.topic;\n\n// Define the url to set the device state\nmsg.url = global.get(\"hueip\") + \"/api/\" + global.get(\"hueusername\") + \"/lights/\" + deviceid + \"/state\";\n\n// Set the msg.payload which is used as the body for the http api request\n// The bri value is taken from the msg.payload input with value between 0 - 254\nconst BRI = msg.payload;\nvar msgstate = {};\nif (BRI > 0) {\n    msg.payload = {\"on\":true, \"bri\": BRI};\n    msgstate.payload = true;\n}\nelse {\n    msg.payload = {\"on\":false};\n    msgstate.payload = false;\n}\n\nif (DEBUG === true) node.warn(msg.url + \"#Body:\" + msg.payload);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 190,
+        "y": 120,
+        "wires": [
+            [
+                "803c8353.503a9"
+            ]
+        ]
+    },
+    {
+        "id": "803c8353.503a9",
+        "type": "http request",
+        "z": "61f978e2.8ebfb8",
+        "name": "Send HTTP PUT Request",
+        "method": "PUT",
+        "ret": "obj",
+        "paytoqs": false,
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 410,
+        "y": 120,
+        "wires": [
+            [
+                "a045e3fb.c28b9"
+            ]
+        ]
+    },
+    {
+        "id": "a045e3fb.c28b9",
+        "type": "function",
+        "z": "61f978e2.8ebfb8",
+        "name": "Set Result Bri",
+        "func": "// Check the result and set as output the status OK or ERR, the light state true or false, the light bri 0 - 254\n// The input msg has properties:\n// statusCode, i.e. 200 if request is ok\n// msg.payload, i.e. [{\"success\":{\"/lights/5/state/on\":true}},{\"success\":{\"/lights/5/state/bri\":254}}]\n// Uses global.context debug\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// HTTP response payload\nvar arrstate = msg.payload;\n// There are 1 0r 2 items in the array providing info about the state on and state bri\n// if bri=0 then 1 item state\n// [{\"success\":{\"/lights/5/state/on\":true}},{\"success\":{\"/lights/5/state/bri\":254}}]\nif (DEBUG) node.warn(arrstate);\n\n// statusCode\nif (msg.statusCode == 200) {\n    msg.payload = \"OK\"\n}\nelse {\n    msg.payload = \"ERR\"\n}\n\n// State on: {\"success\":{\"/lights/5/state/on\":true}}\nif (DEBUG) node.warn(arrstate[0]);\nvar objstate = arrstate[0];\nvar objstatesuccess = Object.values(objstate)[0];\nvar stateon = Object.values(objstatesuccess)[0];\nvar msgstate = {};\nmsgstate.payload = stateon;\nif (DEBUG) node.warn(\"State=\"+msgstate.payload);\n\n// State Bri: {\"success\":{\"/lights/5/state/bri\":254}}\n// Only if the array has 2 items. init the statebri with 0\nvar statebri = 0;\nif (arrstate.length == 2) {\n    if (DEBUG) node.warn(arrstate[1]);\n    var objbri = arrstate[1];\n    var objbrisuccess = Object.values(objbri)[0];\n    statebri = Object.values(objbrisuccess)[0];\n}\nvar msgbri = {};\nmsgbri.payload = statebri;\nif (DEBUG) node.warn(\"Bri=\"+msgbri.payload);\n\n// OK or ERR, true or false, 0 - 254\nreturn [msgstate,msgbri,msg];\n",
+        "outputs": 3,
+        "noerr": 0,
+        "x": 640,
+        "y": 120,
+        "wires": [
+            [],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "aa8b1eae.9e955",
+        "type": "comment",
+        "z": "61f978e2.8ebfb8",
+        "name": "OK or ERR",
+        "info": "",
+        "x": 900,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "b41573e8.e0084",
+        "type": "comment",
+        "z": "61f978e2.8ebfb8",
+        "name": "true or false",
+        "info": "",
+        "x": 910,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "987c35a0.b29968",
+        "type": "comment",
+        "z": "61f978e2.8ebfb8",
+        "name": "0-254",
+        "info": "",
+        "x": 890,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "61934420.7caa8c",
+        "type": "comment",
+        "z": "61f978e2.8ebfb8",
+        "name": "topic=HueNr,payload=0-254",
+        "info": "",
+        "x": 160,
+        "y": 40,
+        "wires": []
+    }
+]

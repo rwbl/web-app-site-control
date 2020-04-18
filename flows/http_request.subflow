@@ -1,0 +1,89 @@
+[
+    {
+        "id": "83c3e25a.f926b",
+        "type": "subflow",
+        "name": "http request",
+        "info": "Hue HTTP API Request to the Hue Bridge.\n\n**INPUT**\n\nMessage payload with URL, i.e. msg.url = \"http://...\"\n\n**OUTPUT**\n\nMessage payload containing the HTTP API response.\n",
+        "category": "",
+        "in": [
+            {
+                "x": 60,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "7a6fa9ff.84a4f8"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 680,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "d1545d90.ad5e8",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#AAAA66"
+    },
+    {
+        "id": "7a6fa9ff.84a4f8",
+        "type": "http request",
+        "z": "83c3e25a.f926b",
+        "name": "HTTP API GET Request",
+        "method": "GET",
+        "ret": "txt",
+        "paytoqs": false,
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 230,
+        "y": 140,
+        "wires": [
+            [
+                "d1545d90.ad5e8"
+            ]
+        ]
+    },
+    {
+        "id": "d1545d90.ad5e8",
+        "type": "json",
+        "z": "83c3e25a.f926b",
+        "name": "Convert JavaScript Object",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 510,
+        "y": 140,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "26aa676b.71ab58",
+        "type": "comment",
+        "z": "83c3e25a.f926b",
+        "name": "HTTP Response",
+        "info": "",
+        "x": 740,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "6f9b0c75.9f3ca4",
+        "type": "comment",
+        "z": "83c3e25a.f926b",
+        "name": "msg.url",
+        "info": "",
+        "x": 90,
+        "y": 40,
+        "wires": []
+    }
+]

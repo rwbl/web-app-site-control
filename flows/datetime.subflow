@@ -1,0 +1,167 @@
+[
+    {
+        "id": "b5f62f16.f2a0e",
+        "type": "subflow",
+        "name": "datetime",
+        "info": "Date & Time Functions\n\n**INPUT**\n\nNo input used.\n\n**OUTPUT**\n\nJSON Object with keys:value pairs.\n\n_Examples Payload_\n\n01-04-2020 (KW 14)\n\n{{msg.payload.date}} (KW {{msg.payload.weeknr}})\n\n\n",
+        "category": "",
+        "in": [
+            {
+                "x": 40,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "6ad65be3.25f664"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 300,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "6ad65be3.25f664",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [
+            {
+                "name": "All",
+                "type": "bool",
+                "value": "true"
+            },
+            {
+                "name": "Date",
+                "type": "bool",
+                "value": "false"
+            },
+            {
+                "name": "Time",
+                "type": "bool",
+                "value": "false"
+            },
+            {
+                "name": "DateTime",
+                "type": "bool",
+                "value": "false"
+            },
+            {
+                "name": "UseSeconds",
+                "type": "bool",
+                "value": "true"
+            }
+        ],
+        "color": "#DDAA99",
+        "status": {
+            "x": 300,
+            "y": 120,
+            "wires": [
+                {
+                    "id": "6ad65be3.25f664",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "6ad65be3.25f664",
+        "type": "function",
+        "z": "b5f62f16.f2a0e",
+        "name": "Date Time",
+        "func": "// Various date & time functions\nconst DEBUG = false;\n\n// Get date now and format dd-mm-yyyy\nvar getDateNow = function() {\n    var today = new Date();\n    var dd = today.getDate();\n    var mm = today.getMonth()+1;\n    var yyyy = today.getFullYear();\n    if(dd<10) dd='0'+dd;\n    if(mm<10) mm='0'+mm;\n    return dd+\"-\"+mm+\"-\"+yyyy;\n} \n\n// Get date now and format YYYY-mm-dd\n// const DATENOW = getDateNowYYYYmmdd();\nvar getDateNowYYYYmmdd = function() {\n    var today = new Date();\n    var dd = today.getDate();\n    var mm = today.getMonth()+1;\n    var yyyy = today.getFullYear();\n    if(dd<10) dd='0'+dd;\n    if(mm<10) mm='0'+mm;\n    return yyyy + \"-\" + mm + \"-\" + dd;\n} \n\n// Get time now and format\nvar getTimeNow = function(usesecs) {\n    var today = new Date();\n    var hh = today.getHours();\n    var mm = today.getMinutes(); \n    var ss = today.getSeconds(); \n    if(hh<10) hh='0'+hh;\n    if(mm<10) mm='0'+mm;\n    if(ss<10) ss='0'+ss;\n    var result = (usesecs) ? hh + \":\" + mm + \":\" + ss : hh + \":\" + mm;\n    return result\n}\n\n// Returns the ISO week of the date from an UTC timestamp.\nvar getWeekNumber = function() {\n    var today = new Date();\n    var onejan = new Date(today.getFullYear(),0,1);\n    return Math.ceil((((today - onejan) / 86400000) + onejan.getDay()+1)/7);\n}\n\n/*\nISO 8601 week numbering.\nNew week starts on mondays.\nUsed by most European countries, most of Asia and Oceania.\n1st week contains 4-7 days of the new year\nThanks to https://github.com/commenthol/weeknumber\n*/\nvar getWeekNumber2 = function() {\n    const MINUTE = 60000\n    const DAY = 86400000\n    const WEEK = 604800000 // = 7 * 24 * 60 * 60 * 1000 = 7 days in ms\n    const tzDiff = (first, second) => (first.getTimezoneOffset() - second.getTimezoneOffset()) * MINUTE\n    const date = new Date();\n  // day 0 is monday\n  const day = (date.getDay() + 6) % 7\n  // get thursday of present week\n  const thursday = new Date(date)\n  thursday.setDate(date.getDate() - day + 3)\n  // set 1st january first\n  const firstThursday = new Date(thursday.getFullYear(), 0, 1)\n  // if Jan 1st is not a thursday...\n  if (firstThursday.getDay() !== 4) {\n    firstThursday.setMonth(0, 1 + (11 /* 4 + 7 */ - firstThursday.getDay()) % 7)\n  }\n  const weekNumber = 1 + Math.floor((thursday - firstThursday + tzDiff(firstThursday, thursday)) / WEEK)\n  return weekNumber\n}\n\nvar getDayStr = function() {\n    var now = new Date();\n    day = now.getDate();\n    dayNr = now.getDay();\n    weekDay = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag' ];\n    return weekDay[dayNr];\n}\n\nvar getMonthStr = function() {\n    var now = new Date();\n    monthNr = now.getMonth();\n \tmonth = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September', 'Oktober','November','Dezember'];\n    return month[monthNr];\n}\n\n// Check if to use seconds for the time\nconst usesecs = env.get(\"UseSeconds\");\n\n// Select the option for the msg to return\nif (env.get(\"All\")) {msg.payload = {\n    \"date\":getDateNow(),\n    \"dateyyyymmdd\":getDateNowYYYYmmdd(),\n    \"time\":getTimeNow(usesecs), \n    \"timehhmm\":getTimeNow(false), \n    \"datetime\":getDateNow() + \" \" + getTimeNow(usesecs), \n    \"datetimehhmm\":getDateNow() + \" \" + getTimeNow(false), \n    \"weeknr\":getWeekNumber(), \n    \"daystr\":getDayStr(),\n    \"monthstr\":getMonthStr()}}\nif (env.get(\"Date\")) {msg.payload = getDateNow()}\nif (env.get(\"Time\")) {msg.payload = getTimeNow(usesecs)}\nif (env.get(\"DateTime\")) {msg.payload = getDateNow() + \" \" + getTimeNow(usesecs)}\n\n// Debug\nif (DEBUG) node.warn(msg.payload);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 170,
+        "y": 80,
+        "wires": [
+            []
+        ]
+    }
+][
+    {
+        "id": "b5f62f16.f2a0e",
+        "type": "subflow",
+        "name": "datetime",
+        "info": "Date & Time Functions\n\n**INPUT**\n\nNo input used.\n\n**OUTPUT**\n\nJSON Object with keys:value pairs.\n\n_Examples_\n\n01-04-2020 (KW 14): {{msg.payload.date}} (KW {{msg.payload.weeknr}})\n\n\n",
+        "category": "",
+        "in": [
+            {
+                "x": 40,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "6ad65be3.25f664"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 300,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "6ad65be3.25f664",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [
+            {
+                "name": "All",
+                "type": "bool",
+                "value": "true"
+            },
+            {
+                "name": "Date",
+                "type": "bool",
+                "value": "false"
+            },
+            {
+                "name": "Time",
+                "type": "bool",
+                "value": "false"
+            },
+            {
+                "name": "DateTime",
+                "type": "bool",
+                "value": "false"
+            },
+            {
+                "name": "UseSeconds",
+                "type": "bool",
+                "value": "true"
+            }
+        ],
+        "color": "#DDAA99",
+        "status": {
+            "x": 300,
+            "y": 120,
+            "wires": [
+                {
+                    "id": "6ad65be3.25f664",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "6ad65be3.25f664",
+        "type": "function",
+        "z": "b5f62f16.f2a0e",
+        "name": "Date Time",
+        "func": "// Various date & time functions\nconst DEBUG = false;\n\n// Today\n// Get date now and format\nvar getDateNow = function() {\n    var today = new Date();\n    var dd = today.getDate();\n    var mm = today.getMonth()+1;\n    var yyyy = today.getFullYear();\n    if(dd<10) dd='0'+dd;\n    if(mm<10) mm='0'+mm;\n    return dd+\"-\"+mm+\"-\"+yyyy;\n} \n\n// Get time now and format\nvar getTimeNow = function(usesecs) {\n    var today = new Date();\n    var hh = today.getHours();\n    var mm = today.getMinutes(); \n    var ss = today.getSeconds(); \n    if(hh<10) hh='0'+hh;\n    if(mm<10) mm='0'+mm;\n    if(ss<10) ss='0'+ss;\n    var result = (usesecs) ? hh + \":\" + mm + \":\" + ss : hh + \":\" + mm;\n    return result\n}\n\n// Returns the ISO week of the date from an UTC timestamp.\nvar getWeekNumber = function() {\n    var today = new Date();\n    var onejan = new Date(today.getFullYear(),0,1);\n    return Math.ceil((((today - onejan) / 86400000) + onejan.getDay()+1)/7);\n}\n\n/*\nISO 8601 week numbering.\nNew week starts on mondays.\nUsed by most European countries, most of Asia and Oceania.\n1st week contains 4-7 days of the new year\nThanks to https://github.com/commenthol/weeknumber\n*/\nvar getWeekNumber2 = function() {\n    const MINUTE = 60000\n    const DAY = 86400000\n    const WEEK = 604800000 // = 7 * 24 * 60 * 60 * 1000 = 7 days in ms\n    const tzDiff = (first, second) => (first.getTimezoneOffset() - second.getTimezoneOffset()) * MINUTE\n    const date = new Date();\n  // day 0 is monday\n  const day = (date.getDay() + 6) % 7\n  // get thursday of present week\n  const thursday = new Date(date)\n  thursday.setDate(date.getDate() - day + 3)\n  // set 1st january first\n  const firstThursday = new Date(thursday.getFullYear(), 0, 1)\n  // if Jan 1st is not a thursday...\n  if (firstThursday.getDay() !== 4) {\n    firstThursday.setMonth(0, 1 + (11 /* 4 + 7 */ - firstThursday.getDay()) % 7)\n  }\n  const weekNumber = 1 + Math.floor((thursday - firstThursday + tzDiff(firstThursday, thursday)) / WEEK)\n  return weekNumber\n}\n\nvar getDayStr = function() {\n    var now = new Date();\n    day = now.getDate();\n    dayNr = now.getDay();\n    weekDay = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag' ];\n    return weekDay[dayNr];\n}\n\nvar getMonthStr = function() {\n    var now = new Date();\n    monthNr = now.getMonth();\n \tmonth = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September', 'Oktober','November','Dezember'];\n    return month[monthNr];\n}\n\n// Check if to use seconds for the time\nconst usesecs = env.get(\"UseSeconds\");\n\n// Select the option for the msg to return\nif (env.get(\"All\")) {msg.payload = {\"date\":getDateNow(),\"time\":getTimeNow(usesecs), \"weeknr\":getWeekNumber(), \"daystr\":getDayStr(),\"monthstr\":getMonthStr()}}\nif (env.get(\"Date\")) {msg.payload = getDateNow()}\nif (env.get(\"Time\")) {msg.payload = getTimeNow(usesecs)}\nif (env.get(\"DateTime\")) {msg.payload = getDateNow() + \" \" + getTimeNow(usesecs)}\n\n// Debug\nif (DEBUG) node.warn(msg.payload);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 170,
+        "y": 80,
+        "wires": [
+            []
+        ]
+    }
+]

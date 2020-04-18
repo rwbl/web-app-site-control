@@ -1,0 +1,1717 @@
+[
+    {
+        "id": "98793125.02979",
+        "type": "subflow",
+        "name": "sunriseset",
+        "info": "Get the times for the sunrise,sunset and daylight\n\n**INPUT**\n\n**Payload**\n\nLocation Latitude & Longitude as JSON object.\n\n_Example:_ {\"lat\": 53.63647,\"lon\": 9.798251}\n\n**OUTPUT**\n\nJSON object with key:value pairs:\n\n**sunrise** = HH:MM\n\n**sunset** = HH:MM\n\n**daylight** = HH:MM\n\n_Example:_ \n\nUsage msg.payload.sunrise ...\n\n**CREDITS**\n\nFunction SunriseSunset = Copyright 2011-2013 Preston Hunt <me@prestonhunt.com>\n",
+        "category": "",
+        "in": [
+            {
+                "x": 60,
+                "y": 60,
+                "wires": [
+                    {
+                        "id": "7e88ff99.0ebf3"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 340,
+                "y": 60,
+                "wires": [
+                    {
+                        "id": "7e88ff99.0ebf3",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#FFCC66",
+        "status": {
+            "x": 340,
+            "y": 160,
+            "wires": [
+                {
+                    "id": "7e88ff99.0ebf3",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "7e88ff99.0ebf3",
+        "type": "function",
+        "z": "98793125.02979",
+        "name": "Set Daylight Info",
+        "func": "// Get the times for the sunrise,sunset and daylight\n// Requires as input a msg.paylog with lat & lon as json:\n// Example: {\"lat\": 53.63647,\"lon\": 9.798251}\n// Returns\n// msg.payload.sunrise  // 06:58\n// msg.payload.sunset   // 19:54\n// msg.payload.daylight // 12:04\n//\n// CREDITS\n// Function SunriseSunset = Copyright 2011-2013 Preston Hunt <me@prestonhunt.com>\n\nconst DEBUG = global.get(\"debug\");\n//const DEBUG = true;\n\n// START SUNRISETCALC\n// Calculate time sunrise/set\nvar SunriseSunset = function( utcFullYear, utcMonth, utcDay, latitude, longitude ) {\n    this.zenith = 90 + 50/60; //   offical      = 90 degrees 50'\n                              //   civil        = 96 degrees\n                              //   nautical     = 102 degrees\n                              //   astronomical = 108 degrees\n\n    this.utcFullYear = utcFullYear;\n    this.utcMonth = utcMonth;\n    this.utcDay = utcDay;\n    this.latitude = latitude;\n    this.longitude = longitude;\n\n    this.rising = true; // set to true for sunrise, false for sunset\n    this.lngHour = this.longitude / 15;\n};\n\nSunriseSunset.prototype = {\n    sin: function( deg ) { return Math.sin( deg * Math.PI / 180 ); },\n    cos: function( deg ) { return Math.cos( deg * Math.PI / 180 ); },\n    tan: function( deg ) { return Math.tan( deg * Math.PI / 180 ); },\n    asin: function( x ) { return (180/Math.PI) * Math.asin(x); },\n    acos: function( x ) { return (180/Math.PI) * Math.acos(x); },\n    atan: function( x ) { return (180/Math.PI) * Math.atan(x); },\n\n    getDOY: function() {\n        var month = this.utcMonth,\n            year = this.utcFullYear,\n            day = this.utcDay;\n\n        var N1 = Math.floor( 275 * month / 9 );\n        var N2 = Math.floor( (month + 9) / 12 );\n        var N3 = (1 + Math.floor((year - 4 * Math.floor(year / 4 ) + 2) / 3));\n        var N = N1 - (N2 * N3) + day - 30;\n        return N;\n    },\n\n    approximateTime: function() {\n        var doy = this.getDOY();\n        if ( this.rising ) {\n            return doy + ((6 - this.lngHour) / 24);\n        } else {\n            return doy + ((18 - this.lngHour) / 24);\n        }\n    },\n\n    meanAnomaly: function() {\n        var t = this.approximateTime();\n        return (0.9856 * t) - 3.289;\n    },\n\n    trueLongitude: function() {\n        var M = this.meanAnomaly();\n        var L = M + (1.916 * this.sin(M)) + (0.020 * this.sin(2 * M)) + 282.634;\n        return L % 360;\n    },\n\n    rightAscension: function() {\n        var L = this.trueLongitude();\n        var RA = this.atan(0.91764 * this.tan(L));\n        RA %= 360;\n\n        var Lquadrant  = (Math.floor( L/90)) * 90;\n        var RAquadrant = (Math.floor(RA/90)) * 90;\n        RA = RA + (Lquadrant - RAquadrant);\n        RA /= 15;\n\n        return RA;\n    },\n\n    sinDec: function() {\n        var L = this.trueLongitude(),\n            sinDec = 0.39782 * this.sin(L);\n\n        return sinDec;\n    },\n\n    cosDec: function() {\n        return this.cos(this.asin(this.sinDec()));\n    },\n\n    localMeanTime: function() {\n        var cosH = (this.cos(this.zenith) - (this.sinDec() * this.sin(this.latitude))) / (this.cosDec() * this.cos(this.latitude));\n\n        if (cosH >  1) {\n            return \"the sun never rises on this location (on the specified date)\";\n        } else if (cosH < -1) {\n            return \"the sun never sets on this location (on the specified date)\";\n        } else {\n            var H = this.rising ? 360 - this.acos(cosH) : this.acos(cosH);\n            H /= 15;\n            var RA = this.rightAscension();\n            var t = this.approximateTime();\n            var T = H + RA - (0.06571 * t) - 6.622;\n            return T;\n        }\n    },\n\n    hoursRange: function( h ) {\n        return (h+24) % 24;\n    },\n\n    UTCTime: function() {\n        var T = this.localMeanTime();\n        var UT = T - this.lngHour;\n        return this.hoursRange( UT );\n        //if ( UT < 0 ) UT += 24;\n        //return UT % 24;\n    },\n\n    sunriseUtcHours: function() {\n        this.rising = true;\n        return this.UTCTime();\n    },\n\n    sunsetUtcHours: function() {\n        this.rising = false;\n        return this.UTCTime();\n    },\n\n    sunriseLocalHours: function(gmt) {\n        return this.hoursRange( gmt + this.sunriseUtcHours() );\n    },\n\n    sunsetLocalHours: function(gmt) {\n        return this.hoursRange( gmt + this.sunsetUtcHours() );\n    },\n\n    // utcCurrentHours is the time that you would like to test for daylight, in hours, at UTC\n    // For example, to test if it's daylight in Tokyo (GMT+9) at 10:30am, pass in\n    // utcCurrentHours=1.5, which corresponds to 1:30am UTC.\n    isDaylight: function( utcCurrentHours ) {\n        var sunriseHours = this.sunriseUtcHours(),\n            sunsetHours = this.sunsetUtcHours();\n\n        if ( sunsetHours < sunriseHours ) {\n            // Either the sunrise or sunset time is for tomorrow\n            if ( utcCurrentHours > sunriseHours ) {\n                return true;\n            } else if ( utcCurrentHours < sunsetHours ) {\n                return true;\n            } else {\n                return false;\n            }\n        }\n\n        if ( utcCurrentHours >= sunriseHours ) {\n            return utcCurrentHours < sunsetHours;\n        } \n\n        return false;\n    }\n};\n// END SUNRISETCALC\n\n// Converts the time Hours.MinutesFraction to HH:MM\n// Parameter - time, i.e. 6.78\n// Returns - time, i.e. 06:47\nvar getTimeStr = function(time) {\n    var result = \"\";\n    var Hour = Math.floor(time);\n    var Min = Math.round((time % 1) * 60, 0);\n    if (Min == 60) {\n        Hour = Hour + 1;\n        Min = 0;\n    }\n    Hour = (Hour < 10) ? \"0\" + Hour : Hour\n    Min = (Min < 10) ? \"0\" + Min : Min\n    result = Hour + \":\" + Min;\n    return result;\n}\n\n// Calculates the time difference in HH:MM\n// Parameter:\n// start - start time HH:MM\n// end - end time HH:MM\nvar getTimeDiff = function(starttime,endtime){\n    var t1 = starttime.split(':'), t2 = endtime.split(':');\n    var d1 = new Date(1970, 1, 1, t1[0], t1[1]),\n    d2 = new Date(1970, 1, 1, t2[0], t2[1]);\n    var difftime = new Date(d2 - d1);\n    var hours = difftime.getUTCHours()\n    hours = (hours < 10) ? \"0\" + hours : hours;\n    var minutes = difftime.getUTCMinutes();\n    minutes = (minutes < 10) ? \"0\" + minutes : minutes;\n    if (DEBUG) node.warn(hours + \":\" + minutes);\n    return  hours + \":\" + minutes;\n}\n\n// getDaylightInfo(53.636470, 9.798251)\nvar getDaylightInfo = function(lat,lon) {\n    if (DEBUG) node.warn(\"lat=\" + lat + \", lon=\" + lon)\n    var result = {};\n    var now = new Date();\n    var nowdate = now.getFullYear() + \"-\"+ (now.getMonth()+1) + \"-\"+ now.getDate();\n    var tzoffset = (now.getTimezoneOffset() / 60) * -1;\n    var location = new SunriseSunset( now.getFullYear(), now.getMonth() + 1, now.getDate(), lat, lon);\n    result.sunrise = getTimeStr(location.sunriseLocalHours(tzoffset));\n    result.sunset = getTimeStr(location.sunsetLocalHours(tzoffset));\n    result.daylight = getTimeDiff(result.sunrise, result.sunset);\n    if (DEBUG) node.warn(tzoffset + \",\"+ nowdate + \":\" + result.sunrise + \" - \"+ result.sunset + \" = \" + result.daylight);\n    return result;\n}\n\nif (DEBUG) node.warn(msg.payload);\n\n// Get the daylight info\nmsg.payload = getDaylightInfo(msg.payload.lat, msg.payload.lon);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 200,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "83c3e25a.f926b",
+        "type": "subflow",
+        "name": "http request",
+        "info": "Hue HTTP API Request to the Hue Bridge.\n\n**INPUT**\n\nMessage payload with URL, i.e. msg.url = \"http://...\"\n\n**OUTPUT**\n\nMessage payload containing the HTTP API response.\n",
+        "category": "",
+        "in": [
+            {
+                "x": 60,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "7a6fa9ff.84a4f8"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 680,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "d1545d90.ad5e8",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#AAAA66"
+    },
+    {
+        "id": "7a6fa9ff.84a4f8",
+        "type": "http request",
+        "z": "83c3e25a.f926b",
+        "name": "HTTP API GET Request",
+        "method": "GET",
+        "ret": "txt",
+        "paytoqs": false,
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 230,
+        "y": 140,
+        "wires": [
+            [
+                "d1545d90.ad5e8"
+            ]
+        ]
+    },
+    {
+        "id": "d1545d90.ad5e8",
+        "type": "json",
+        "z": "83c3e25a.f926b",
+        "name": "Convert JavaScript Object",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 510,
+        "y": 140,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "26aa676b.71ab58",
+        "type": "comment",
+        "z": "83c3e25a.f926b",
+        "name": "HTTP Response",
+        "info": "",
+        "x": 740,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "6f9b0c75.9f3ca4",
+        "type": "comment",
+        "z": "83c3e25a.f926b",
+        "name": "msg.url",
+        "info": "",
+        "x": 90,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "61f978e2.8ebfb8",
+        "type": "subflow",
+        "name": "huelight bri",
+        "info": "Set a **Hue Light** brightness.\n\n**GLOBAL CONTEXT**\n\nThe Hue light state is set by using a HTTP API request to the Hue Bridge.\nRequired are the global context:\n - hueip - the IP address of the Hue Bridge\n - hueusername - the api user name\n\n**INPUT**\n\n**Message Topic**\n\nThe Hue light index, i.e. 1 or 2 etc.\n\n**Message Payload**\n\nThe brightness value: 0 - 254\n\n**OUTPUT**\n\n1 State on = true or false\n\n2 State Bri = 0 - 254 \n\n3 HTTP Result = \"OK\" or \"ERR\".\n",
+        "category": "",
+        "in": [
+            {
+                "x": 60,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "33d00d67.2ac4d2"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 800,
+                "y": 60,
+                "wires": [
+                    {
+                        "id": "a045e3fb.c28b9",
+                        "port": 0
+                    }
+                ]
+            },
+            {
+                "x": 800,
+                "y": 120,
+                "wires": [
+                    {
+                        "id": "a045e3fb.c28b9",
+                        "port": 1
+                    }
+                ]
+            },
+            {
+                "x": 800,
+                "y": 180,
+                "wires": [
+                    {
+                        "id": "a045e3fb.c28b9",
+                        "port": 2
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#FDF0C2",
+        "status": {
+            "x": 580,
+            "y": 180,
+            "wires": [
+                {
+                    "id": "803c8353.503a9",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "33d00d67.2ac4d2",
+        "type": "function",
+        "z": "61f978e2.8ebfb8",
+        "name": "Set URL Bri",
+        "func": "/*\nSet the brightness (bri) of a light on or off using http api PUT request. NOTE THE PUT REQUEST and not GET!\nThe msg.url sets the bri of the light:\nhttp://hue-bridge-ip/api/username/lights/lightnr/state\nThe msg.payload (as JSON object) is used as the body for the http api request.\n{\"on\":true, \"bri\": 0-254}\nNOTE: the msg.payload must not be set in \"\"!\nUses global.context: hueip, hueusername, debug\n*/\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// Set the device id 1..N from the msg.topic\nconst deviceid = msg.topic;\n\n// Define the url to set the device state\nmsg.url = global.get(\"hueip\") + \"/api/\" + global.get(\"hueusername\") + \"/lights/\" + deviceid + \"/state\";\n\n// Set the msg.payload which is used as the body for the http api request\n// The bri value is taken from the msg.payload input with value between 0 - 254\nconst BRI = msg.payload;\nvar msgstate = {};\nif (BRI > 0) {\n    msg.payload = {\"on\":true, \"bri\": BRI};\n    msgstate.payload = true;\n}\nelse {\n    msg.payload = {\"on\":false};\n    msgstate.payload = false;\n}\n\nif (DEBUG === true) node.warn(msg.url + \"#Body:\" + msg.payload);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 190,
+        "y": 120,
+        "wires": [
+            [
+                "803c8353.503a9"
+            ]
+        ]
+    },
+    {
+        "id": "803c8353.503a9",
+        "type": "http request",
+        "z": "61f978e2.8ebfb8",
+        "name": "Send HTTP PUT Request",
+        "method": "PUT",
+        "ret": "obj",
+        "paytoqs": false,
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 410,
+        "y": 120,
+        "wires": [
+            [
+                "a045e3fb.c28b9"
+            ]
+        ]
+    },
+    {
+        "id": "a045e3fb.c28b9",
+        "type": "function",
+        "z": "61f978e2.8ebfb8",
+        "name": "Set Result Bri",
+        "func": "// Check the result and set as output the status OK or ERR, the light state true or false, the light bri 0 - 254\n// The input msg has properties:\n// statusCode, i.e. 200 if request is ok\n// msg.payload, i.e. [{\"success\":{\"/lights/5/state/on\":true}},{\"success\":{\"/lights/5/state/bri\":254}}]\n// Uses global.context debug\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// HTTP response payload\nvar arrstate = msg.payload;\n// There are 1 0r 2 items in the array providing info about the state on and state bri\n// if bri=0 then 1 item state\n// [{\"success\":{\"/lights/5/state/on\":true}},{\"success\":{\"/lights/5/state/bri\":254}}]\nif (DEBUG) node.warn(arrstate);\n\n// statusCode\nif (msg.statusCode == 200) {\n    msg.payload = \"OK\"\n}\nelse {\n    msg.payload = \"ERR\"\n}\n\n// State on: {\"success\":{\"/lights/5/state/on\":true}}\nif (DEBUG) node.warn(arrstate[0]);\nvar objstate = arrstate[0];\nvar objstatesuccess = Object.values(objstate)[0];\nvar stateon = Object.values(objstatesuccess)[0];\nvar msgstate = {};\nmsgstate.payload = stateon;\nif (DEBUG) node.warn(\"State=\"+msgstate.payload);\n\n// State Bri: {\"success\":{\"/lights/5/state/bri\":254}}\n// Only if the array has 2 items. init the statebri with 0\nvar statebri = 0;\nif (arrstate.length == 2) {\n    if (DEBUG) node.warn(arrstate[1]);\n    var objbri = arrstate[1];\n    var objbrisuccess = Object.values(objbri)[0];\n    statebri = Object.values(objbrisuccess)[0];\n}\nvar msgbri = {};\nmsgbri.payload = statebri;\nif (DEBUG) node.warn(\"Bri=\"+msgbri.payload);\n\n// OK or ERR, true or false, 0 - 254\nreturn [msgstate,msgbri,msg];\n",
+        "outputs": 3,
+        "noerr": 0,
+        "x": 640,
+        "y": 120,
+        "wires": [
+            [],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "aa8b1eae.9e955",
+        "type": "comment",
+        "z": "61f978e2.8ebfb8",
+        "name": "OK or ERR",
+        "info": "",
+        "x": 900,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "b41573e8.e0084",
+        "type": "comment",
+        "z": "61f978e2.8ebfb8",
+        "name": "true or false",
+        "info": "",
+        "x": 910,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "987c35a0.b29968",
+        "type": "comment",
+        "z": "61f978e2.8ebfb8",
+        "name": "0-254",
+        "info": "",
+        "x": 890,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "61934420.7caa8c",
+        "type": "comment",
+        "z": "61f978e2.8ebfb8",
+        "name": "topic=HueNr,payload=0-254",
+        "info": "",
+        "x": 160,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "dbf43aa6.185668",
+        "type": "subflow",
+        "name": "huelight onoff",
+        "info": "Switch a **Hue Light** ON or OFF.\n\n**GLOBAL CONTEXT**\n\nThe Hue light state is set by using a HTTP API request to the Hue Bridge.\nRequired are the global context:\n - hueip - the IP address of the Hue Bridge\n - hueusername - the api user name\n\n**INPUT**\n\n**Message Topic**\n\nThe Hue light index, i.e. 1 or 2 etc.\n\n**Message Payload**\n\nThe state: True = light on, False = light off\n\n**OUTPUT**\n\n1 State on = true or false\n\n2 HTTP Result = \"OK\" or \"ERR\".\n",
+        "category": "",
+        "in": [
+            {
+                "x": 60,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "980d604d.c3e4f"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 780,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "25aee157.ac4bfe",
+                        "port": 0
+                    }
+                ]
+            },
+            {
+                "x": 780,
+                "y": 160,
+                "wires": [
+                    {
+                        "id": "25aee157.ac4bfe",
+                        "port": 1
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#FDF0C2",
+        "status": {
+            "x": 580,
+            "y": 180,
+            "wires": [
+                {
+                    "id": "2c76a249.48e3be",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "980d604d.c3e4f",
+        "type": "function",
+        "z": "dbf43aa6.185668",
+        "name": "Set URL OnOff",
+        "func": "/*\n// Switch a light on or off using http api PUT request. NOTE THE PUT REQUEST and not GET!\nThe msg.url is used switch the device:\nhttp://hue-bridge-ip/api/username/lights/lightnr/state\nThe msg.payload (as JSON object) is used as the body for the http api request.\n{\"on\":true} or {\"on\":false}\nNOTE: the msg.payload must not be set in \"\"!\nThe result of the http api put request is a json string or statuscode, i.e. 200:\n[{\"success\":{\"/lights/5/state/on\":true}}]\nUses global.context: hueip, hueusername, debug\n*/\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// Set the device id 1..N from the msg.topic\nconst deviceid = msg.topic;\n\n// Define the url to set the device state\nmsg.url = global.get(\"hueip\") + \"/api/\" + global.get(\"hueusername\") + \"/lights/\" + deviceid + \"/state\";\n\n// Set the msg.payload to the state which is true or false from the msg.payload input\nconst state = msg.payload;\nif (DEBUG) node.warn(\"State=\" +  state)\nmsg.payload = { \"on\": state };\n\nif (DEBUG === true) node.warn(msg.url + \"#Body:\" + msg.payload + \"#on\" + msg.payload.on);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 180,
+        "y": 120,
+        "wires": [
+            [
+                "2c76a249.48e3be"
+            ]
+        ]
+    },
+    {
+        "id": "2c76a249.48e3be",
+        "type": "http request",
+        "z": "dbf43aa6.185668",
+        "name": "Send HTTP PUT Request",
+        "method": "PUT",
+        "ret": "obj",
+        "paytoqs": false,
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 410,
+        "y": 120,
+        "wires": [
+            [
+                "25aee157.ac4bfe"
+            ]
+        ]
+    },
+    {
+        "id": "25aee157.ac4bfe",
+        "type": "function",
+        "z": "dbf43aa6.185668",
+        "name": "Set Result",
+        "func": "/*\nCheck the result and set as output status OK or ERR, light state true or false\nThe input msg has properties:\nstatusCode, i.e. 200 if request is ok\nmsg.payload, i.e. /lights/5/state/on=true with light number and state\nUses global.context: debug\n*/\nconst DEBUG = global.get(\"debug\");\n//const DEBUG = true;\n\n// HTTP response payload\nvar arr = msg.payload;\n// There is only 1 element in the array\n// 1[{\"success\":{\"/lights/5/state/on\":false}}]\nvar msgstate = {};\narr.forEach(function(item){\n    // get the item {\"/lights/5/state/on\":false}} as object\n    obj = Object.values(item)[0];\n    // get the state from the item object, which the object value with array index 0, i.e. false\n    msgstate.payload = Object.values(obj)[0];\n    if (DEBUG === true) node.warn(Object.keys(obj)[0] + \"=\" + Object.values(obj)[0]); // /lights/5/state/on=true\n});\n\n// statusCode\nif (msg.statusCode == 200) {\n    msg.payload = \"OK\"\n}\nelse {\n    msg.payload = \"ERR\"\n}\n\nif (DEBUG === true) node.warn(msg.url + \"#Body:\" + msg.payload);\n\n// OK or ERR, true or false, text message\nreturn [msgstate,msg];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "x": 630,
+        "y": 120,
+        "wires": [
+            [],
+            []
+        ]
+    },
+    {
+        "id": "84da1adf.9e7118",
+        "type": "comment",
+        "z": "dbf43aa6.185668",
+        "name": "OK or ERR",
+        "info": "",
+        "x": 880,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "49c2e2d4.b1cfec",
+        "type": "comment",
+        "z": "dbf43aa6.185668",
+        "name": "true or false",
+        "info": "",
+        "x": 890,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "4ba65af.cddeba4",
+        "type": "comment",
+        "z": "dbf43aa6.185668",
+        "name": "topic=HueNr,payload=true or false",
+        "info": "",
+        "x": 180,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "10a18bdd.8f1184",
+        "type": "tab",
+        "label": "WASC-Lights",
+        "disabled": false,
+        "info": "Lights control.\nMainly Philips Hue lights.\n"
+    },
+    {
+        "id": "1eee66a8.556c89",
+        "type": "inject",
+        "z": "10a18bdd.8f1184",
+        "name": "Request Device Status",
+        "topic": "",
+        "payload": "deviceid",
+        "payloadType": "flow",
+        "repeat": "300",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "0.3",
+        "x": 150,
+        "y": 220,
+        "wires": [
+            [
+                "95666a56.9dc128"
+            ]
+        ]
+    },
+    {
+        "id": "133eda5c.0967a6",
+        "type": "comment",
+        "z": "10a18bdd.8f1184",
+        "name": "WASC-Lights - Tab Lampen, Groups Lampen; Update  @5min",
+        "info": "Control the Philips Hue lights - brief description.\n\nThe devices are created by the hardware Philips Hue Bridge.\nEach of the hue devices has a unique index, i.e.:\n\n1=Eingang;2=Esszimmer;3=Wohnzimmer TV;4=Wohnzimmer Rob;5=MakeLab;6=Wohnzimmer Stehlampe;8=Wohnzimmer Ute;\n\nThe function node \"Configure ...\" defines the index & name of the lights and builds the ui_dropdown select options.\nFor each light the name and index is used.\nAdd or change devices in this function node.\n\nThe index is required to get the light status On/Off and the set the bri 0 - 254.\n\nTo set the light level, a ui_slider is used which sets the new level when it is released.\n\nThe light can be switched on/off using a ui_switch.\n\nIf the light is off and the slider is moved, the switch is turned on.\n",
+        "x": 240,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "995ba3c.2ed0e6",
+        "type": "ui_switch",
+        "z": "10a18bdd.8f1184",
+        "name": "Switch OnOff",
+        "label": "Aus | An",
+        "tooltip": "",
+        "group": "8d8aa280.6840d",
+        "order": 4,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "decouple": "true",
+        "topic": "",
+        "style": "",
+        "onvalue": "true",
+        "onvalueType": "bool",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "false",
+        "offvalueType": "bool",
+        "officon": "",
+        "offcolor": "",
+        "x": 730,
+        "y": 300,
+        "wires": [
+            [
+                "e859b692.b7ed2",
+                "17e2b7fb.fde858"
+            ]
+        ]
+    },
+    {
+        "id": "a9ce1beb.cbead8",
+        "type": "function",
+        "z": "10a18bdd.8f1184",
+        "name": "Set Device State+Bri",
+        "func": "/*\n// Set the device state and brightness bri for a light\nThe msg.payload contains the device properties returned from http api request using light index \"1\",\"2\" ...\nhttp://ip-hue-bridge/api/username/lights/index\n{\n\"state\":{\"on\":false,\"bri\":254,\"alert\":\"select\",\"mode\":\"homeautomation\",\"reachable\":true},\n\"swupdate\":{\"state\":\"noupdates\",\"lastinstall\":\"2020-03-03T13:21:06\"},\n\"type\":\"Dimmable light\",\n\"name\":\"MakeLab\",\n\"modelid\":\"LWB010\",\"manufacturername\":\"Signify Netherlands B.V.\",\"productname\":\"Hue white lamp\",\n\"capabilities\":{\"certified\":true,\"control\":{\"mindimlevel\":2000,\"maxlumen\":806},\"streaming\":{\"renderer\":false,\"proxy\":false}},\"config\":{\"archetype\":\"classicbulb\",\"function\":\"functional\",\"direction\":\"omnidirectional\",\"startup\":{\"mode\":\"safety\",\"configured\":true}},\"uniqueid\":\"00:17:88:01:03:48:4a:27-0b\",\"swversion\":\"1.50.2_r30933\",\"swconfigid\":\"754CE4FC\",\"productid\":\"Philips-LWB010-1-A19DLv4\"}\n}\n*/\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// Get the msg.payload JSON object used to get the light properties\nconst devicestate = msg.payload;\nif (DEBUG) node.warn(devicestate);\n\n// Get device property: state with value true or false\nvar msgstate = {}\nmsgstate.topic = flow.get(\"deviceid\");\nmsgstate.payload = devicestate.state.on;\nif (DEBUG) node.warn(\"State:\" + msgstate.payload);\n\n// Get device property: bri with value 0 - 254\nvar msgbri = {}\nmsgbri.topic = flow.get(\"deviceid\");\nmsgbri.payload = devicestate.state.bri;\nif (DEBUG) node.warn(\"Bri:\" + msgbri.payload);\n\n// Set mqtt message\nvar msgmqtt = {};\n// msgmqtt.topic = \"wasc/lights\";\nmsgmqtt.payload = {\"id\":flow.get(\"deviceid\"),\"name\":devicestate.name,\"state\":msgstate.payload, \"bri\":msgbri.payload };\n\nreturn [msgstate,msgbri,msgmqtt];\n",
+        "outputs": 3,
+        "noerr": 0,
+        "x": 480,
+        "y": 280,
+        "wires": [
+            [
+                "995ba3c.2ed0e6"
+            ],
+            [
+                "70af613d.41dc2"
+            ],
+            [
+                "70ccc41.310053c"
+            ]
+        ]
+    },
+    {
+        "id": "a0e59be1.9bcf18",
+        "type": "ui_template",
+        "z": "10a18bdd.8f1184",
+        "group": "8d8aa280.6840d",
+        "name": "Set Group Name Properties",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "format": "<style>\n/*\n    For all elements in the group\n*/\n#Lampen_Lampen_cards {\n    font-size: 20px !important;\n    background-color: \"#FF0000\" !important;\n}\n\n/*\n    For all cardtitles\n.nr-dashboard-theme ui-card-panel p.nr-dashboard-cardtitle {\n    color: #ff0000;\n}\n*/\n\n/* \n    #RaspberryMatic_Dashboard_Hue_cardtitle {\n        font-size: 20px !important;\n        background-color: \"#FF0000\" !important;\n    }\n*/\n</style>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "templateScope": "local",
+        "x": 660,
+        "y": 40,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "70af613d.41dc2",
+        "type": "ui_slider",
+        "z": "10a18bdd.8f1184",
+        "name": "Set Bri",
+        "label": "",
+        "tooltip": "",
+        "group": "8d8aa280.6840d",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "outs": "end",
+        "topic": "",
+        "min": 0,
+        "max": "254",
+        "step": "5",
+        "x": 710,
+        "y": 360,
+        "wires": [
+            [
+                "17e2b7fb.fde858"
+            ]
+        ]
+    },
+    {
+        "id": "d18ce11e.fbabc",
+        "type": "ui_dropdown",
+        "z": "10a18bdd.8f1184",
+        "name": "Select Light",
+        "label": "",
+        "tooltip": "",
+        "place": "",
+        "group": "8d8aa280.6840d",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "options": [],
+        "payload": "",
+        "topic": "",
+        "x": 730,
+        "y": 160,
+        "wires": [
+            [
+                "95666a56.9dc128"
+            ]
+        ]
+    },
+    {
+        "id": "a5e927c0.2d9208",
+        "type": "inject",
+        "z": "10a18bdd.8f1184",
+        "name": "Request All Lights",
+        "topic": "",
+        "payload": "5",
+        "payloadType": "str",
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.2",
+        "x": 130,
+        "y": 100,
+        "wires": [
+            [
+                "e1c6355d.37bf38"
+            ]
+        ]
+    },
+    {
+        "id": "e1c6355d.37bf38",
+        "type": "function",
+        "z": "10a18bdd.8f1184",
+        "name": "Set URL Request All Lights",
+        "func": "/*\n// Set the url message to request hue all lights information\nExample: http://ip-hue-bridge/api/username/lights\nReturns:\n{\n\"1\":{\"state\":{\"on\":false,\"bri\":254,\"alert\":\"select\",\"mode\":\"homeautomation\",\"reachable\":true},...},\n\"2\":{\"state\":{\"on\":false,\"bri\":152,\"ct\":343,\"alert\":\"select\",\"colormode\":\"ct\",\"mode\":\"homeautomation\",\"reachable\":true},...},\n}\nEach light has a unique index \"1\", \"2\" ...\n*/\n\nconst DEBUG = global.get(\"debug\");\n//const DEBUG = true;\n\nmsg.url = global.get(\"hueip\") + \"/api/\" + global.get(\"hueusername\") + \"/lights/\";\n\nif (DEBUG) node.warn(msg.url);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 460,
+        "y": 100,
+        "wires": [
+            [
+                "aad25885.85a6b8"
+            ]
+        ]
+    },
+    {
+        "id": "376b8fd.fd0607",
+        "type": "function",
+        "z": "10a18bdd.8f1184",
+        "name": "Configure All Lights",
+        "func": "/*\nConfigure the names & index for the light devices\nThe light devices are selected according their type = see var lighttypes\nAfter adding or changing check the ui_dropdown entries of select lights\nThe flow.devices id holds the index of the selected light\n*/\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// Define the light types\nvar lighttypes = [\"color temperature light\",\"dimmable light\"]\n\n// get the lights object - which not an JSON array but a JSON single object with multiple entries: { \"1\":{...}, \"2\":{...} }\nlights = msg.payload;\n// how many keys has the json object\nif (DEBUG) node.warn(\"Hue devices: \" + Object.keys(lights).length);    // Hue devices: 7\n\n// helper to sort the lights array by key\nfunction compare(a, b) {\n  // Use toUpperCase() to ignore character casing\n  const itemA = Object.keys(a)[0].toUpperCase();\n  const itemB = Object.keys(b)[0].toUpperCase();\n\n  let comparison = 0;\n  if (itemA > itemB) {\n    comparison = 1;\n  } else if (itemA < itemB) {\n    comparison = -1;\n  }\n  return comparison;\n}\n\n// Set the select options Name:Index from the previous devices array\nfunction setOptions(name, index){\n    let obj = {};\n    obj[name] = index;\n    msg.options.push(obj);\n}\n\n// Init the options array and add the select item from the devices array first entry\nmsg.options = [];\n// get for the selected lighttype devices the key (1,2,...) and value (\"Einhang\", ...)\nObject.entries(lights).forEach(([key,value])=>{\n    var lighttype = value.type.toLowerCase();\n    if (lighttypes.includes(lighttype)) {\n        setOptions(value.name, key);\n        if (DEBUG) node.warn(key + \"=\" + value.name + \n            \", id:\"+ value.uniqueid + \n            \", state:\" + value.state.on + \n            \", bri:\" + value.state.bri +\n            \", type:\" + lighttype)   \n        \n    }\n});\n\nmsg.options.sort(compare);\n// Set the gloal context hue devices\nglobal.set(\"huedevices\", msg.options);\n\n// if (DEBUG) node.warn(msg.options);\nif (DEBUG) node.warn(msg.options);\n\n// Set the initial deviceid\nconst deviceid = flow.get(\"deviceid\") || \"5\";\nflow.set(\"deviceid\",deviceid);\nmsg.payload = deviceid;\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 490,
+        "y": 160,
+        "wires": [
+            [
+                "d18ce11e.fbabc"
+            ]
+        ]
+    },
+    {
+        "id": "95666a56.9dc128",
+        "type": "function",
+        "z": "10a18bdd.8f1184",
+        "name": "Set URL Request Light State",
+        "func": "// Set the url message to request hue light information using index number from all lights selection\n/*\n1) Get all lights to obtain the light index (see function \"Set URL Request Lights\")\n// An array is returned, with an unique index for each light \"1\", \"2\" ...\nExample: http://ip-hue-bridge/api/username/lights\n{\n\"1\":{\"state\":{\"on\":false,\"bri\":254,\"alert\":\"select\",\"mode\":\"homeautomation\",\"reachable\":true},...},\n\"2\":{\"state\":{\"on\":false,\"bri\":152,\"ct\":343,\"alert\":\"select\",\"colormode\":\"ct\",\"mode\":\"homeautomation\",\"reachable\":true},...},\n}\n\n2) Get the specific light state information using the light index \"1\",\"2\" ...\nExample: http://ip-hue-bridge/api/username/lights/5\n{\n\"state\":{\"on\":false,\"bri\":254,\"alert\":\"select\",\"mode\":\"homeautomation\",\"reachable\":true},...\n}\n*/\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// Get the device id 1..N from the msg payload and set flow context \"deviceid\"\nconst deviceid = msg.payload;\nflow.set(\"deviceid\",deviceid);\n\n// Define the ur to get the light state\nmsg.url = global.get(\"hueip\") + \"/api/\" + global.get(\"hueusername\") + \"/lights/\" + deviceid;\n\nif (DEBUG) node.warn(msg.url);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 460,
+        "y": 220,
+        "wires": [
+            [
+                "de310fdc.9eefe"
+            ]
+        ]
+    },
+    {
+        "id": "e859b692.b7ed2",
+        "type": "change",
+        "z": "10a18bdd.8f1184",
+        "name": "Switch OUT to IN",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload",
+                "tot": "msg"
+            },
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "deviceid",
+                "tot": "flow"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 950,
+        "y": 260,
+        "wires": [
+            [
+                "995ba3c.2ed0e6"
+            ]
+        ]
+    },
+    {
+        "id": "ed838b01.4c95a8",
+        "type": "subflow:dbf43aa6.185668",
+        "z": "10a18bdd.8f1184",
+        "name": "Switch ONOFF",
+        "env": [],
+        "x": 1120,
+        "y": 900,
+        "wires": [
+            [],
+            []
+        ]
+    },
+    {
+        "id": "f38e52b4.5d6288",
+        "type": "inject",
+        "z": "10a18bdd.8f1184",
+        "name": "Request All Lights",
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "0.2",
+        "x": 150,
+        "y": 1200,
+        "wires": [
+            [
+                "9da2fa94.064718"
+            ]
+        ]
+    },
+    {
+        "id": "9da2fa94.064718",
+        "type": "function",
+        "z": "10a18bdd.8f1184",
+        "name": "Set URL Request Lights",
+        "func": "// Set the url message to request hue all lights information\n/*\nExample: http://ip-hue-bridge/api/username/lights\nReturns:\n{\n\"1\":{\"state\":{\"on\":false,\"bri\":254,\"alert\":\"select\",\"mode\":\"homeautomation\",\"reachable\":true},...},\n\"2\":{\"state\":{\"on\":false,\"bri\":152,\"ct\":343,\"alert\":\"select\",\"colormode\":\"ct\",\"mode\":\"homeautomation\",\"reachable\":true},...},\n}\nEach light has a unique index \"1\", \"2\" ...\n*/\n\nconst DEBUG = global.get(\"debug\");\n//const DEBUG = true;\n\nmsg.url = global.get(\"hueip\") + \"/api/\" + global.get(\"hueusername\") + \"/lights/\";\n\nif (DEBUG) node.warn(msg.url);\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 410,
+        "y": 1200,
+        "wires": [
+            [
+                "6cea9367.97391c"
+            ]
+        ]
+    },
+    {
+        "id": "da17190d.49c3c",
+        "type": "function",
+        "z": "10a18bdd.8f1184",
+        "name": "List Lights",
+        "func": "// List the hue light index with name\n// const DEBUG = global.get(\"debug\");\nconst DEBUG = false;\n\n// get the lights object - which not an JSON array but a JSON single object with multiple entries: { \"1\":{...}, \"2\":{...} }\nlights = msg.payload;\n// how many keys has the json object\nif (DEBUG) node.warn(\"Hue devices: \" + Object.keys(lights).length);    // Hue devices: 7\n\nvar lightslist = \"\";\n\n// get all devices key and value\nObject.entries(lights).forEach(([key,value])=>{\n    lightslist = lightslist + key + \"=\" + value.name + \";\";\n    if (DEBUG) node.warn(key + \"=\" + value.name + \n        \", id:\"+ value.uniqueid + \n        \", state:\" + value.state.on + \n        \", bri:\" + value.state.bri)   \n});\n\nif (DEBUG) node.warn(lightslist);\nnode.warn(lightslist);\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 1100,
+        "y": 1200,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "8cd97843.d729",
+        "type": "comment",
+        "z": "10a18bdd.8f1184",
+        "name": "Get List Hue Devices",
+        "info": "Request the actual list of devices.\n\nEach of the hue devices has a unique index, i.e.:\n\n1=Eingang;2=Esszimmer;3=Wohnzimmer TV;4=Wohnzimmer Rob;5=MakeLab;6=Wohnzimmer Stehlampe;8=Wohnzimmer Ute;\n\n",
+        "x": 140,
+        "y": 1160,
+        "wires": []
+    },
+    {
+        "id": "c6ff5712.11dc28",
+        "type": "comment",
+        "z": "10a18bdd.8f1184",
+        "name": "Schedule WZ Hue Devices",
+        "info": "Turn Hue lights on / off at specific time.\n\nThe msg contains:\n**Topic**\n\nThe hue lights given by their index in a csv list, i.e. 5,2.\nThe values 5,2 is an example for the hue lights MakeLab & Esszimmer.\n\n**Payload**\n\nTrue = switch the lights on. False = switch off.\n\n**Reference Lights list**\n\n1=Eingang;2=Esszimmer;3=Wohnzimmer TV;4=Wohnzimmer Rob;5=MakeLab;6=Wohnzimmer Stehlampe;8=Wohnzimmer Ute;\n",
+        "x": 130,
+        "y": 720,
+        "wires": []
+    },
+    {
+        "id": "21f0b2fb.2f66de",
+        "type": "function",
+        "z": "10a18bdd.8f1184",
+        "name": "Switch Hue Lights",
+        "func": "// Switch on/off hue lights\n// The msg.topic is a csv list with hue light indices, i.e. 1,2,3,6\n// The msg.payload is true (=Lights ON) or false (=Lights OFF)\n\nconst DEBUG = global.get(\"debug\");\n//const DEBUG = true;\n\n// Get lights array from topic csv string\nvar lights = msg.topic.split(',');\n// Loop over the array and switch each of the lights\nlights.forEach(function(light){\n    msg.topic = light;\n    node.send(msg);\n    if (DEBUG) node.warn(\"Scheduler: Switch light \" + msg.topic + \"=\" + msg.payload); \n});\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 910,
+        "y": 960,
+        "wires": [
+            [
+                "ed838b01.4c95a8"
+            ]
+        ]
+    },
+    {
+        "id": "b56683b4.5a096",
+        "type": "subflow:dbf43aa6.185668",
+        "z": "10a18bdd.8f1184",
+        "name": "Switch ONOFF",
+        "env": [],
+        "x": 1220,
+        "y": 520,
+        "wires": [
+            [],
+            []
+        ]
+    },
+    {
+        "id": "77562f69.ac6b9",
+        "type": "subflow:61f978e2.8ebfb8",
+        "z": "10a18bdd.8f1184",
+        "name": "Change Bri",
+        "env": [],
+        "x": 1230,
+        "y": 360,
+        "wires": [
+            [
+                "995ba3c.2ed0e6"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "17e2b7fb.fde858",
+        "type": "change",
+        "z": "10a18bdd.8f1184",
+        "name": "Set Topic",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "deviceid",
+                "tot": "flow"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 920,
+        "y": 360,
+        "wires": [
+            [
+                "77562f69.ac6b9",
+                "b56683b4.5a096"
+            ]
+        ]
+    },
+    {
+        "id": "aad25885.85a6b8",
+        "type": "subflow:83c3e25a.f926b",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "x": 730,
+        "y": 100,
+        "wires": [
+            [
+                "376b8fd.fd0607"
+            ]
+        ]
+    },
+    {
+        "id": "de310fdc.9eefe",
+        "type": "subflow:83c3e25a.f926b",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "x": 730,
+        "y": 220,
+        "wires": [
+            [
+                "a9ce1beb.cbead8"
+            ]
+        ]
+    },
+    {
+        "id": "6cea9367.97391c",
+        "type": "subflow:83c3e25a.f926b",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "x": 850,
+        "y": 1200,
+        "wires": [
+            [
+                "da17190d.49c3c"
+            ]
+        ]
+    },
+    {
+        "id": "cc681c7e.6ad5a",
+        "type": "function",
+        "z": "10a18bdd.8f1184",
+        "name": "Set Delay Start",
+        "func": "// Set the start delay in ms based on the time difference between now and sunset\n// The msg.payload.sunset is required.\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\nvar getTimeNow = function(usesecs) {\n    var today = new Date();\n    var hh = today.getHours();\n    var mm = today.getMinutes(); \n    var ss = today.getSeconds(); \n    if(hh<10) hh='0'+hh;\n    if(mm<10) mm='0'+mm;\n    if(ss<10) ss='0'+ss;\n    return usesecs ? hh + \":\" + mm + \":\" + ss : hh + \":\" + mm;\n}\n\n// Calculates the time difference in minutes\n// Parameter:\n// start - start time HH:MM\n// end - end time HH:MM\nvar getTimeDiffMin = function(starttime,endtime){\n    if (DEBUG) node.warn(starttime + \"-\" + endtime);\n    var t1 = starttime.split(':'), t2 = endtime.split(':');\n    var d1 = new Date(0, 0, 0, t1[0], t1[1]),\n    d2 = new Date(0, 0, 0, t2[0], t2[1]);\n    var difftime = new Date(d2 - d1);\n    if (DEBUG) node.warn(difftime.getUTCHours() + \":\" + difftime.getUTCMinutes());\n    return (difftime.getUTCHours() * 60) + difftime.getUTCMinutes();\n}\n\n// Get end time = sunset HH:MM\nconst endtime = msg.payload.sunset;\n// Get start time = 01:00\nconst starttime = getTimeNow(false);\n// Calculate time diff minutes converted to ms\nmsg.delay = getTimeDiffMin(starttime,endtime) * 60 * 1000;\n\nif (DEBUG) node.warn(\"Delay (ms):\" + msg.delay);\n\n// Set the msg.payload to true as used by the function to switch the hue lights on\nmsg.payload = true;\n\n// Show the node status\nnode.status({fill:\"green\", shape:\"dot\", text: starttime + \" - \" + endtime});\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 920,
+        "y": 840,
+        "wires": [
+            [
+                "cfe82b74.07a958"
+            ]
+        ]
+    },
+    {
+        "id": "cfe82b74.07a958",
+        "type": "delay",
+        "z": "10a18bdd.8f1184",
+        "name": "Delay Start",
+        "pauseType": "delayv",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "x": 1110,
+        "y": 840,
+        "wires": [
+            [
+                "8aa40a1d.de7c38"
+            ]
+        ]
+    },
+    {
+        "id": "1cc4bfbf.d50a3",
+        "type": "inject",
+        "z": "10a18bdd.8f1184",
+        "name": "Set Start Time@sunset",
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "repeat": "",
+        "crontab": "00 01 * * *",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 150,
+        "y": 820,
+        "wires": [
+            [
+                "cd5cc3db.37bc"
+            ]
+        ]
+    },
+    {
+        "id": "8f1ad471.7406d8",
+        "type": "subflow:98793125.02979",
+        "z": "10a18bdd.8f1184",
+        "name": "Set Daylight Info",
+        "env": [],
+        "x": 680,
+        "y": 820,
+        "wires": [
+            [
+                "cc681c7e.6ad5a",
+                "999bebd5.a414f8"
+            ]
+        ]
+    },
+    {
+        "id": "ed2bff87.dd141",
+        "type": "inject",
+        "z": "10a18bdd.8f1184",
+        "name": "Set End Time@2300",
+        "topic": "",
+        "payload": "false",
+        "payloadType": "bool",
+        "repeat": "",
+        "crontab": "00 23 * * *",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 140,
+        "y": 900,
+        "wires": [
+            [
+                "c11cb09c.9d0a3"
+            ]
+        ]
+    },
+    {
+        "id": "999bebd5.a414f8",
+        "type": "function",
+        "z": "10a18bdd.8f1184",
+        "name": "Set WZ ONOFF Info",
+        "func": "// Set the start and entime of the WZ group on and off\n\n// Check if flow context useschedule is set to true or false.\n// if false then do not trigger lights on off\nvar useschedule = flow.get(\"useschedule\");\n\nif (useschedule) {\n    // Get start time = sunset HH:MM\n    const starttime = msg.payload.sunset;\n    // Get end time = 23:00\n    const endtime = \"23:00\";\n    // Set the msg.payload \n    msg.payload = starttime + \" - \" + endtime;\n}\nelse {\n    msg.payload = \"Aus\"\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 900,
+        "y": 800,
+        "wires": [
+            [
+                "c07b9cb9.d6c5b"
+            ]
+        ]
+    },
+    {
+        "id": "3b480156.12a6ee",
+        "type": "ui_template",
+        "z": "10a18bdd.8f1184",
+        "d": true,
+        "group": "8d8aa280.6840d",
+        "name": "WZ ONOFF Info",
+        "order": 5,
+        "width": 0,
+        "height": 0,
+        "format": "<div layout=\"row\" layout-align=\"center end\">\n    <md-divider></md-divider>\n    <p ng-style=\"{'background-color': 'yellow', 'font-size': '0.9em'}\">Wohnzimmer An/Aus: {{msg.payload}}</p>\n</div>  \n",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "templateScope": "local",
+        "x": 1360,
+        "y": 800,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9c659559.446e58",
+        "type": "ui_button",
+        "z": "10a18bdd.8f1184",
+        "name": "WZ Group On",
+        "group": "8d8aa280.6840d",
+        "order": 7,
+        "width": "3",
+        "height": "1",
+        "passthru": false,
+        "label": "An",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "icon": "",
+        "payload": "true",
+        "payloadType": "bool",
+        "topic": "",
+        "x": 120,
+        "y": 940,
+        "wires": [
+            [
+                "46dfb63d.963f28"
+            ]
+        ]
+    },
+    {
+        "id": "2210ab54.8a6fe4",
+        "type": "ui_button",
+        "z": "10a18bdd.8f1184",
+        "name": "WZ Group Off",
+        "group": "8d8aa280.6840d",
+        "order": 8,
+        "width": "3",
+        "height": "1",
+        "passthru": false,
+        "label": "Aus",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "icon": "",
+        "payload": "false",
+        "payloadType": "bool",
+        "topic": "",
+        "x": 120,
+        "y": 980,
+        "wires": [
+            [
+                "46dfb63d.963f28"
+            ]
+        ]
+    },
+    {
+        "id": "c0584770.ae2188",
+        "type": "inject",
+        "z": "10a18bdd.8f1184",
+        "name": "Set Group",
+        "topic": "",
+        "payload": "1,2,3,6",
+        "payloadType": "str",
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "x": 110,
+        "y": 760,
+        "wires": [
+            [
+                "292d5472.fa5ebc"
+            ]
+        ]
+    },
+    {
+        "id": "292d5472.fa5ebc",
+        "type": "change",
+        "z": "10a18bdd.8f1184",
+        "name": "Set flow.group",
+        "rules": [
+            {
+                "t": "set",
+                "p": "group",
+                "pt": "flow",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 420,
+        "y": 760,
+        "wires": [
+            [
+                "cd5cc3db.37bc"
+            ]
+        ]
+    },
+    {
+        "id": "cd5cc3db.37bc",
+        "type": "change",
+        "z": "10a18bdd.8f1184",
+        "name": "Set Topic & Location group",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "group",
+                "tot": "flow"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "location",
+                "tot": "global"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 460,
+        "y": 820,
+        "wires": [
+            [
+                "8f1ad471.7406d8"
+            ]
+        ]
+    },
+    {
+        "id": "c11cb09c.9d0a3",
+        "type": "change",
+        "z": "10a18bdd.8f1184",
+        "name": "Set Topic group",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "group",
+                "tot": "flow"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 420,
+        "y": 900,
+        "wires": [
+            [
+                "8aa40a1d.de7c38"
+            ]
+        ]
+    },
+    {
+        "id": "46dfb63d.963f28",
+        "type": "change",
+        "z": "10a18bdd.8f1184",
+        "name": "Set Topic group",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "group",
+                "tot": "flow"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 420,
+        "y": 960,
+        "wires": [
+            [
+                "21f0b2fb.2f66de"
+            ]
+        ]
+    },
+    {
+        "id": "d0ff8b55.527508",
+        "type": "inject",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "topic": "Init Option Use Schedule",
+        "payload": "true",
+        "payloadType": "bool",
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "x": 170,
+        "y": 1020,
+        "wires": [
+            [
+                "b4853361.a488a"
+            ]
+        ]
+    },
+    {
+        "id": "b4853361.a488a",
+        "type": "ui_switch",
+        "z": "10a18bdd.8f1184",
+        "name": "WZ Group Use Schedule",
+        "label": "Zeitschalter Aus | An",
+        "tooltip": "",
+        "group": "8d8aa280.6840d",
+        "order": 10,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "decouple": "false",
+        "topic": "",
+        "style": "",
+        "onvalue": "true",
+        "onvalueType": "bool",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "false",
+        "offvalueType": "bool",
+        "officon": "",
+        "offcolor": "",
+        "x": 150,
+        "y": 1080,
+        "wires": [
+            [
+                "e266b45f.ef7818",
+                "cd5cc3db.37bc"
+            ]
+        ]
+    },
+    {
+        "id": "e266b45f.ef7818",
+        "type": "change",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "useschedule",
+                "pt": "flow",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 440,
+        "y": 1080,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "afc6cd07.ddcf4",
+        "type": "ui_text",
+        "z": "10a18bdd.8f1184",
+        "group": "8d8aa280.6840d",
+        "order": 6,
+        "width": 0,
+        "height": 0,
+        "name": "WZ Group Header",
+        "label": "Wohnzimmer Gruppe",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 1130,
+        "y": 760,
+        "wires": []
+    },
+    {
+        "id": "c07b9cb9.d6c5b",
+        "type": "ui_text",
+        "z": "10a18bdd.8f1184",
+        "group": "8d8aa280.6840d",
+        "order": 9,
+        "width": 0,
+        "height": 0,
+        "name": "WZ Group ONOFF Info",
+        "label": "Zeitschalter",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 1150,
+        "y": 800,
+        "wires": []
+    },
+    {
+        "id": "8aa40a1d.de7c38",
+        "type": "function",
+        "z": "10a18bdd.8f1184",
+        "name": "Switch Hue Lights",
+        "func": "// Switch on/off hue lights\n// The msg.topic is a csv list with hue light indices, i.e. 1,2,3,6\n// The msg.payload is true (=Lights ON) or false (=Lights OFF)\n\nconst DEBUG = global.get(\"debug\");\n//const DEBUG = true;\n\n// Check if flow context useschedule is set to true or false.\n// if false then do not trigger lights on off\nvar useschedule = flow.get(\"useschedule\");\n\nif (DEBUG) node.warn(msg.topic + \"=\" + msg.payload + \",useschedule:\" + useschedule);\n\nif (useschedule) {\n    // Get lights array from topic csv string\n    var lights = msg.topic.split(',');\n    // Loop over the array and switch each of the lights\n    lights.forEach(function(light){\n        msg.topic = light;\n        node.send(msg);\n        if (DEBUG) node.warn(\"Scheduler: Switch light \" + msg.topic + \"=\" + msg.payload); \n    });\n}\n\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 910,
+        "y": 900,
+        "wires": [
+            [
+                "ed838b01.4c95a8"
+            ]
+        ]
+    },
+    {
+        "id": "be3f18f.9e782e8",
+        "type": "comment",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "info": "The buttons WZ Group ON and OFF enables to switch the WZ group lights.\n\nThe flow.context(\"group\") holds the hue light indices as csv string.\n\n",
+        "x": 1300,
+        "y": 960,
+        "wires": []
+    },
+    {
+        "id": "e6971ecf.e6b63",
+        "type": "comment",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "info": "The option flow.context(\"useschedule\") sets the option to autostart the WZ group hue lights between sunset and 2300.\n\n",
+        "x": 1300,
+        "y": 1020,
+        "wires": []
+    },
+    {
+        "id": "e592ef09.5ef69",
+        "type": "comment",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "info": "Switch the hue lights onor off depending msg.payload true or false.\n\nThe topic uses the flow.context(\"group\") which holds the hue light indices as csv string.\n\nThe lights are switchd if the flow.context(\"useschedule\") is set to true (via ui_switch \"WZ Group Use Schedule\").\n",
+        "x": 1300,
+        "y": 900,
+        "wires": []
+    },
+    {
+        "id": "fb153d07.afe57",
+        "type": "ui_template",
+        "z": "10a18bdd.8f1184",
+        "group": "8d8aa280.6840d",
+        "name": "Set Label Style",
+        "order": 10,
+        "width": 0,
+        "height": 0,
+        "format": "<!--\nSet the background color of the ui_text label \"WohnzimmerGruppe\".\n-->\n<style>\n    .nr-dashboard-widget-Wohnzimmer_Gruppe {\n        background-color:#505050 !important;\n    }\n</style>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "templateScope": "local",
+        "x": 920,
+        "y": 760,
+        "wires": [
+            [
+                "afc6cd07.ddcf4"
+            ]
+        ]
+    },
+    {
+        "id": "70ccc41.310053c",
+        "type": "mqtt out",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "topic": "wasc/lights",
+        "qos": "",
+        "retain": "",
+        "broker": "48368190.9c6bb",
+        "x": 730,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "223ac4f2.eb3f94",
+        "type": "mqtt in",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "topic": "wasc/lights/#",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "48368190.9c6bb",
+        "x": 90,
+        "y": 520,
+        "wires": [
+            [
+                "e04d6ff9.5b47b"
+            ]
+        ]
+    },
+    {
+        "id": "601fee8b.c797e",
+        "type": "debug",
+        "z": "10a18bdd.8f1184",
+        "name": "DEBUG MQTTLIGHTS",
+        "active": true,
+        "tosidebar": false,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 970,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "e04d6ff9.5b47b",
+        "type": "switch",
+        "z": "10a18bdd.8f1184",
+        "name": "Select Topic",
+        "property": "topic",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "wasc/lights/bri",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "wasc/lights/switch",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "wasc/lights",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 3,
+        "x": 510,
+        "y": 520,
+        "wires": [
+            [
+                "a99ca285.64ef6"
+            ],
+            [
+                "f73bdbc5.2de2d8"
+            ],
+            [
+                "601fee8b.c797e"
+            ]
+        ]
+    },
+    {
+        "id": "76c802c.dad26fc",
+        "type": "inject",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "topic": "wasc/lights/switch",
+        "payload": "{\"id\":5,\"state\":true}",
+        "payloadType": "json",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 250,
+        "y": 560,
+        "wires": [
+            [
+                "e04d6ff9.5b47b"
+            ]
+        ]
+    },
+    {
+        "id": "f73bdbc5.2de2d8",
+        "type": "change",
+        "z": "10a18bdd.8f1184",
+        "name": "Set Switch ONOFF Message",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "payload.id",
+                "tot": "msg"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.state",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 980,
+        "y": 520,
+        "wires": [
+            [
+                "b56683b4.5a096"
+            ]
+        ]
+    },
+    {
+        "id": "3ea256c6.d600ca",
+        "type": "inject",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "topic": "wasc/lights/switch",
+        "payload": "{\"id\":5,\"state\":false}",
+        "payloadType": "json",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 250,
+        "y": 600,
+        "wires": [
+            [
+                "e04d6ff9.5b47b"
+            ]
+        ]
+    },
+    {
+        "id": "a99ca285.64ef6",
+        "type": "change",
+        "z": "10a18bdd.8f1184",
+        "name": "Set Bri Message",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "payload.id",
+                "tot": "msg"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.bri",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 940,
+        "y": 480,
+        "wires": [
+            [
+                "77562f69.ac6b9"
+            ]
+        ]
+    },
+    {
+        "id": "14754138.867d2f",
+        "type": "inject",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "topic": "wasc/lights/bri",
+        "payload": "{\"id\":5,\"bri\":199}",
+        "payloadType": "json",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 260,
+        "y": 640,
+        "wires": [
+            [
+                "e04d6ff9.5b47b"
+            ]
+        ]
+    },
+    {
+        "id": "c0ee20e2.7f26c",
+        "type": "comment",
+        "z": "10a18bdd.8f1184",
+        "name": "WASC-Lights - MQTT",
+        "info": "**WASC-Lights MQTT Topic & Payload Publish & Subscribe**\n\n# Publish\n\n## Switch Light ONOFF\nTo switch a light on or off\n### Topic\n`wasc/lights/switch`\n\n### Payload\nid = id of the light 1 - NNN\nstate = true (ON) | false (OFF)\n**Light ON**\n`{\"id\":5,\"state\":true}`\n**Light OFF**\n`{\"id\":5,\"state\":false}`\n\n## Set Light Brightness 0 - 254\nTo set the light brightness between 0 -254.\n### Topic\n`wasc/lights/bri`\n\n### Payload\nid = id of the light 1 - NNN\nbri = brightness 0 - 254\n`{\"id\":5,\"bri\":199}`\n\n# Subscribe\n\n## Get all topics published\n### Topic\n`wasc/lights/#`\n\n### Payload\nThe payload returned (example):\n`{\"id\":\"5\",\"name\":\"MakeLab\",\"state\":true,\"bri\":85}`\n\n### Payload Get Key\nExample of getting a payload key, like state or bri\n`var state = msg.payload.state`\n`var bri = msg.payload.bri`\n\n## Get the state of a light by its ID\nRequest the state of a light. \nTo get the retuened message, subscribe to the topic `wasc/lights/#` as previous described.\n### Topic\n`wasc/lights/get`\n\n### Payload\nid = id of the light 1 - NNN\n`id`\n\n",
+        "x": 120,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "578d57c6.b145b8",
+        "type": "comment",
+        "z": "10a18bdd.8f1184",
+        "name": "Tests",
+        "info": "",
+        "x": 450,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "9fce80b7.8b8f78",
+        "type": "mqtt in",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "topic": "wasc/lights/get",
+        "qos": "2",
+        "datatype": "auto",
+        "broker": "48368190.9c6bb",
+        "x": 100,
+        "y": 440,
+        "wires": [
+            [
+                "627fe8eb.82dac"
+            ]
+        ]
+    },
+    {
+        "id": "627fe8eb.82dac",
+        "type": "change",
+        "z": "10a18bdd.8f1184",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "deviceid",
+                "pt": "flow",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 280,
+        "y": 440,
+        "wires": [
+            [
+                "95666a56.9dc128"
+            ]
+        ]
+    },
+    {
+        "id": "8d8aa280.6840d",
+        "type": "ui_group",
+        "z": "",
+        "name": "Lampen",
+        "tab": "b4c54a70.106d38",
+        "disp": false,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "48368190.9c6bb",
+        "type": "mqtt-broker",
+        "z": "",
+        "name": "MQTT Broker",
+        "broker": "localhost",
+        "port": "1883",
+        "clientid": "",
+        "usetls": false,
+        "compatmode": false,
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    },
+    {
+        "id": "b4c54a70.106d38",
+        "type": "ui_tab",
+        "z": "",
+        "name": "Lampen",
+        "icon": "fa-lightbulb-o",
+        "order": 2,
+        "disabled": false,
+        "hidden": false
+    }
+]

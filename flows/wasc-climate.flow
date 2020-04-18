@@ -1,0 +1,745 @@
+[
+    {
+        "id": "175206d.ab36ff9",
+        "type": "tab",
+        "label": "WASC-Climate",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "aba14a7a.2fdaa8",
+        "type": "comment",
+        "z": "175206d.ab36ff9",
+        "name": "WASC-Climate - Tab Klima, Group Klima; Update @1min",
+        "info": "Display Climate information - brief description.\n\nThe weather data is displayed using ui_gauges, type donut.\n\nThe refresh date & time (Last Update) is displayed in an ui_template node.\n",
+        "x": 230,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "b83b8ebd.ea12e",
+        "type": "ui_gauge",
+        "z": "175206d.ab36ff9",
+        "name": "Temperature",
+        "group": "38c0f1bc.502ebe",
+        "order": 1,
+        "width": "3",
+        "height": "3",
+        "gtype": "donut",
+        "title": "Temperature",
+        "label": "°C",
+        "format": "{{msg.payload.temperature.value | number:1}}",
+        "min": "-10",
+        "max": "40",
+        "colors": [
+            "#295989",
+            "#dee600",
+            "#ca3c3a"
+        ],
+        "seg1": "10",
+        "seg2": "24",
+        "x": 890,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "ea12db09.d34808",
+        "type": "ui_gauge",
+        "z": "175206d.ab36ff9",
+        "name": "Humidity",
+        "group": "38c0f1bc.502ebe",
+        "order": 2,
+        "width": "3",
+        "height": "3",
+        "gtype": "donut",
+        "title": "Luftfeuchtigkeit",
+        "label": "%, {{msg.payload.humidity.status}}",
+        "format": "{{msg.payload.humidity.value | number:0}}",
+        "min": "0",
+        "max": "100",
+        "colors": [
+            "#8a2861",
+            "#00e667",
+            "#0505ff"
+        ],
+        "seg1": "30",
+        "seg2": "60",
+        "x": 900,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "cacf889b.a0c9b8",
+        "type": "ui_template",
+        "z": "175206d.ab36ff9",
+        "group": "38c0f1bc.502ebe",
+        "name": "Set Group Style",
+        "order": 8,
+        "width": 0,
+        "height": 0,
+        "format": "<style>\n/*\n    For all elements in the group\n*/\n#Wetter_Wetter_cards {\n    font-size: 20px !important;\n    background-color: \"#FF0000\" !important;\n}\n\n/*\n    For all cardtitles\n.nr-dashboard-theme ui-card-panel p.nr-dashboard-cardtitle {\n    color: #ff0000;\n}\n*/\n\n/* \n    #RaspberryMatic_Dashboard_Hue_cardtitle {\n        font-size: 20px !important;\n        background-color: \"#FF0000\" !important;\n    }\n*/\n</style>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "templateScope": "local",
+        "x": 540,
+        "y": 40,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "439e596a.437ad8",
+        "type": "ui_gauge",
+        "z": "175206d.ab36ff9",
+        "name": "Barometer",
+        "group": "38c0f1bc.502ebe",
+        "order": 3,
+        "width": "3",
+        "height": "3",
+        "gtype": "donut",
+        "title": "Luftdruck",
+        "label": "hPa",
+        "format": "{{msg.payload}}",
+        "min": "950",
+        "max": "1100",
+        "colors": [
+            "#8a2861",
+            "#00e667",
+            "#0505ff"
+        ],
+        "seg1": "1000",
+        "seg2": "1050",
+        "x": 890,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "9d39767c.5036f8",
+        "type": "ui_gauge",
+        "z": "175206d.ab36ff9",
+        "name": "Wind",
+        "group": "38c0f1bc.502ebe",
+        "order": 4,
+        "width": "3",
+        "height": "3",
+        "gtype": "donut",
+        "title": "Wind",
+        "label": "m/s, {{msg.payload.wind.direction.value}}",
+        "format": "{{msg.payload.wind.speed.value | number:1}}",
+        "min": "0",
+        "max": "100",
+        "colors": [
+            "#1eb300",
+            "#00e667",
+            "#ff3705"
+        ],
+        "seg1": "25",
+        "seg2": "50",
+        "x": 910,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "352d0b09.a2b1f4",
+        "type": "rfx-sensor",
+        "z": "175206d.ab36ff9",
+        "name": "",
+        "port": "31897ac3.21d406",
+        "topicSource": "all",
+        "topic": "",
+        "x": 80,
+        "y": 100,
+        "wires": [
+            [
+                "6cf9972a.5d49f8",
+                "5509737e.eea4bc"
+            ]
+        ]
+    },
+    {
+        "id": "ee6c7982.5deea8",
+        "type": "debug",
+        "z": "175206d.ab36ff9",
+        "name": "DEBUG RFXSENSOR",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 340,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "6cf9972a.5d49f8",
+        "type": "switch",
+        "z": "175206d.ab36ff9",
+        "name": "Switch Device",
+        "property": "topic",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "WIND4/0x9D16",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "TH7/0x570E",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "TH7/0x280E",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "TH7/0x2A0E",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 4,
+        "x": 320,
+        "y": 220,
+        "wires": [
+            [
+                "7e78be69.94b09"
+            ],
+            [
+                "ea12db09.d34808",
+                "e58893c4.7683e",
+                "b83b8ebd.ea12e"
+            ],
+            [
+                "c6b147e6.b9a7b8"
+            ],
+            [
+                "d7d82028.d3dab"
+            ]
+        ]
+    },
+    {
+        "id": "c4c644e5.67e2f8",
+        "type": "Bme280",
+        "z": "175206d.ab36ff9",
+        "name": "Barometer",
+        "bus": "1",
+        "address": "0x76",
+        "topic": "bme280",
+        "extra": false,
+        "x": 310,
+        "y": 420,
+        "wires": [
+            [
+                "a2ae8b3b.b4a2a8"
+            ]
+        ]
+    },
+    {
+        "id": "a2ae8b3b.b4a2a8",
+        "type": "change",
+        "z": "175206d.ab36ff9",
+        "name": "Round hPa",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "$round($number(msg.payload.pressure_hPa),0)",
+                "tot": "jsonata"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 530,
+        "y": 420,
+        "wires": [
+            [
+                "439e596a.437ad8",
+                "a8031561.a0e9d8"
+            ]
+        ]
+    },
+    {
+        "id": "b5769bdf.d10808",
+        "type": "comment",
+        "z": "175206d.ab36ff9",
+        "name": "TFA 30.3168",
+        "info": "",
+        "x": 1090,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "84eb595.c856ba8",
+        "type": "comment",
+        "z": "175206d.ab36ff9",
+        "name": "TFA TS34C",
+        "info": "",
+        "x": 1090,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "1d792390.b2e0cc",
+        "type": "comment",
+        "z": "175206d.ab36ff9",
+        "name": "BME280,I2C",
+        "info": "",
+        "x": 1090,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "7e78be69.94b09",
+        "type": "function",
+        "z": "175206d.ab36ff9",
+        "name": "Set Wind Speed & Direction",
+        "func": "// Set the windspeed & direction\n\n// Convert degrees to card\n// CREDITS: https://gist.github.com/felipeskroski/\nvar degToCard = function(deg){\n  if (deg>11.25 && deg<=33.75){\n    return \"NNE\";\n  }else if (deg>33.75 && deg<=56.25){\n    return \"ENE\";\n  }else if (deg>56.25 && deg<=78.75){\n    return \"E\";\n  }else if (deg>78.75 && deg<=101.25){\n    return \"ESE\";\n  }else if (deg>101.25 && deg<=123.75){\n    return \"ESE\";\n  }else if (deg>123.75 && deg<=146.25){\n    return \"SE\";\n  }else if (deg>146.25 && deg<=168.75){\n    return \"SSE\";\n  }else if (deg>168.75 && deg<=191.25){\n    return \"S\";\n  }else if (deg>191.25 && deg<=213.75){\n    return \"SSW\";\n  }else if (deg>213.75 && deg<=236.25){\n    return \"SW\";\n  }else if (deg>236.25 && deg<=258.75){\n    return \"WSW\";\n  }else if (deg>258.75 && deg<=281.25){\n    return \"W\";\n  }else if (deg>281.25 && deg<=303.75){\n    return \"WNW\";\n  }else if (deg>303.75 && deg<=326.25){\n    return \"NW\";\n  }else if (deg>326.25 && deg<=348.75){\n    return \"NNW\";\n  }else{\n    return \"N\"; \n  }\n}\n\n// Set wind direction from degrees\nmsg.payload.wind.direction.value = degToCard(msg.payload.wind.direction.value);\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 580,
+        "y": 140,
+        "wires": [
+            [
+                "9d39767c.5036f8",
+                "34c2f8b8.5758c8"
+            ]
+        ]
+    },
+    {
+        "id": "98a028e6.e88f48",
+        "type": "ui_template",
+        "z": "175206d.ab36ff9",
+        "group": "38c0f1bc.502ebe",
+        "name": "Set Label Style",
+        "order": 9,
+        "width": 0,
+        "height": 0,
+        "format": "<!--\nSet the background color & text size of the ui_text label.\n-->\n<style>\n    .nr-dashboard-widget-Aktualisiert {\n        background-color:#404040 !important;\n        font-size: small !important;\n    }\n</style>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": false,
+        "templateScope": "local",
+        "x": 540,
+        "y": 500,
+        "wires": [
+            [
+                "59f9acd3.b1b494",
+                "3a6ed721.fa7678"
+            ]
+        ]
+    },
+    {
+        "id": "59f9acd3.b1b494",
+        "type": "ui_text",
+        "z": "175206d.ab36ff9",
+        "group": "38c0f1bc.502ebe",
+        "order": 7,
+        "width": 0,
+        "height": 0,
+        "name": "Last Update",
+        "label": "Aktualisiert",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 890,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "e58893c4.7683e",
+        "type": "change",
+        "z": "175206d.ab36ff9",
+        "name": "Set flow temp+hum",
+        "rules": [
+            {
+                "t": "set",
+                "p": "humidity",
+                "pt": "flow",
+                "to": "payload.humidity.value",
+                "tot": "msg"
+            },
+            {
+                "t": "set",
+                "p": "temperature",
+                "pt": "flow",
+                "to": "payload.temperature.value",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 870,
+        "y": 300,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "34c2f8b8.5758c8",
+        "type": "change",
+        "z": "175206d.ab36ff9",
+        "name": "Set flow wind",
+        "rules": [
+            {
+                "t": "set",
+                "p": "windspeed",
+                "pt": "flow",
+                "to": "payload.wind.speed.value",
+                "tot": "msg"
+            },
+            {
+                "t": "set",
+                "p": "winddirection",
+                "pt": "flow",
+                "to": "payload.wind.direction.value",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 890,
+        "y": 180,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "a8031561.a0e9d8",
+        "type": "change",
+        "z": "175206d.ab36ff9",
+        "name": "Set flow airpressure",
+        "rules": [
+            {
+                "t": "set",
+                "p": "airpressure",
+                "pt": "flow",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 860,
+        "y": 460,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f9eb0019.09b64",
+        "type": "mqtt in",
+        "z": "175206d.ab36ff9",
+        "name": "",
+        "topic": "wasc/weather/#",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "48368190.9c6bb",
+        "x": 100,
+        "y": 700,
+        "wires": [
+            [
+                "4c00199.7513f68"
+            ]
+        ]
+    },
+    {
+        "id": "bdd9908e.eb019",
+        "type": "function",
+        "z": "175206d.ab36ff9",
+        "name": "Create MQTT Message",
+        "func": "// Define the mqtt message containing all climate values as flow context\n\n// const DEBUG = global.get(\"debug\");\nconst DEBUG = true;\n\nmsg.topic = \"wasc/climate\";\n\nmsg.payload = {\n    \"temperature\":flow.get(\"temperature\") || 0,\n    \"humidity\":flow.get(\"humidity\") || 0,\n    \"windspeed\":flow.get(\"windspeed\") || 0,\n    \"winddirection\":flow.get(\"winddirection\") || \"\",\n    \"airpressure\":flow.get(\"airpressure\") || 0,\n    \"lastupdate\":flow.get(\"lastupdate\") || \"\",\n};\n\nif (DEBUG) node.warn(msg.payload);\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 570,
+        "y": 640,
+        "wires": [
+            [
+                "3e5592cd.67259e"
+            ]
+        ]
+    },
+    {
+        "id": "3e5592cd.67259e",
+        "type": "mqtt out",
+        "z": "175206d.ab36ff9",
+        "name": "MQTT Climate",
+        "topic": "",
+        "qos": "",
+        "retain": "",
+        "broker": "48368190.9c6bb",
+        "x": 880,
+        "y": 640,
+        "wires": []
+    },
+    {
+        "id": "3a6ed721.fa7678",
+        "type": "change",
+        "z": "175206d.ab36ff9",
+        "name": "Set flow lastupdate",
+        "rules": [
+            {
+                "t": "set",
+                "p": "lastupdate",
+                "pt": "flow",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 870,
+        "y": 540,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "81450a4a.030a78",
+        "type": "comment",
+        "z": "175206d.ab36ff9",
+        "name": "WASC-Climate - MQTT",
+        "info": "## Publish\n\n### Topic\n`wasc/climate`\n\n### Payload\n_Example_ with key:value pairs\n`{\"temperature\":17.4,\"humidity\":75,\"windspeed\":0.9,\"winddirection\":\"SSE\",\"airpressure\":1024,\"lastupdate\":\"09:37\"}`\n\n## Subscribe\n\n### Topic\n`wasc/climate/#`\n\n### Payload\n`{\"temperature\":17.4,\"humidity\":75,\"windspeed\":0.9,\"winddirection\":\"SSE\",\"airpressure\":1024,\"lastupdate\":\"09:37\"}`\n\n### Payload Key\n_Note_:The key must be converted first with a JSON node.\n`var temperature = msg.payload.temperature`\n",
+        "x": 120,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "d78dc483.2d6b78",
+        "type": "ui_text",
+        "z": "175206d.ab36ff9",
+        "group": "38c0f1bc.502ebe",
+        "order": 5,
+        "width": 0,
+        "height": 0,
+        "name": "Living T+H",
+        "label": "Wohnzimmer",
+        "format": "{{msg.payload.temperature.value}} °C, {{msg.payload.humidity.value}} %",
+        "layout": "row-spread",
+        "x": 890,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "c6b147e6.b9a7b8",
+        "type": "ui_template",
+        "z": "175206d.ab36ff9",
+        "group": "38c0f1bc.502ebe",
+        "name": "Set Label Style",
+        "order": 10,
+        "width": 0,
+        "height": 0,
+        "format": "<!--\nSet the background color & text size of the ui_text label.\n-->\n<style>\n    .nr-dashboard-widget-Wohnzimmer {\n        background-color:#404040 !important;\n        font-size: small !important;\n    }\n</style>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": false,
+        "templateScope": "local",
+        "x": 540,
+        "y": 340,
+        "wires": [
+            [
+                "d78dc483.2d6b78"
+            ]
+        ]
+    },
+    {
+        "id": "65b9cf30.a7a8",
+        "type": "comment",
+        "z": "175206d.ab36ff9",
+        "name": "TFA TS34C",
+        "info": "",
+        "x": 1090,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "2de37b16.3d77c4",
+        "type": "comment",
+        "z": "175206d.ab36ff9",
+        "name": "TFA TS34C",
+        "info": "",
+        "x": 1090,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "d7d82028.d3dab",
+        "type": "ui_template",
+        "z": "175206d.ab36ff9",
+        "group": "38c0f1bc.502ebe",
+        "name": "Set Label Style",
+        "order": 11,
+        "width": 0,
+        "height": 0,
+        "format": "<!--\nSet the background color & text size of the ui_text label.\n-->\n<style>\n    .nr-dashboard-widget-Keller {\n        background-color:#404040 !important;\n        font-size: small !important;\n    }\n</style>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": false,
+        "templateScope": "local",
+        "x": 540,
+        "y": 380,
+        "wires": [
+            [
+                "c6cf646a.01cdc8"
+            ]
+        ]
+    },
+    {
+        "id": "c6cf646a.01cdc8",
+        "type": "ui_text",
+        "z": "175206d.ab36ff9",
+        "group": "38c0f1bc.502ebe",
+        "order": 6,
+        "width": 0,
+        "height": 0,
+        "name": "Basement T+H",
+        "label": "Keller",
+        "format": "{{msg.payload.temperature.value}} °C, {{msg.payload.humidity.value}} %",
+        "layout": "row-spread",
+        "x": 880,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "e225bcbe.2e00b",
+        "type": "comment",
+        "z": "175206d.ab36ff9",
+        "name": "TFA TS34C",
+        "info": "",
+        "x": 1090,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "5509737e.eea4bc",
+        "type": "change",
+        "z": "175206d.ab36ff9",
+        "name": "Set Time",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "clock.timehhmm",
+                "tot": "global"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 300,
+        "y": 500,
+        "wires": [
+            [
+                "98a028e6.e88f48"
+            ]
+        ]
+    },
+    {
+        "id": "4c00199.7513f68",
+        "type": "debug",
+        "z": "175206d.ab36ff9",
+        "d": true,
+        "name": "DEBUG MQTTCLIMATE",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 570,
+        "y": 700,
+        "wires": []
+    },
+    {
+        "id": "655a123e.3f6ae4",
+        "type": "inject",
+        "z": "175206d.ab36ff9",
+        "name": "Init MQTT Update @1min",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "repeat": "60",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "x": 160,
+        "y": 640,
+        "wires": [
+            [
+                "bdd9908e.eb019"
+            ]
+        ]
+    },
+    {
+        "id": "38c0f1bc.502ebe",
+        "type": "ui_group",
+        "z": "",
+        "name": "Klima",
+        "tab": "54e22d5b.12f794",
+        "disp": false,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "31897ac3.21d406",
+        "type": "rfxtrx-port",
+        "z": "",
+        "port": "/dev/ttyUSB-RFX433E-A",
+        "enableDebug": false,
+        "rfyVenetianMode": "EU"
+    },
+    {
+        "id": "48368190.9c6bb",
+        "type": "mqtt-broker",
+        "z": "",
+        "name": "MQTT Broker",
+        "broker": "localhost",
+        "port": "1883",
+        "clientid": "",
+        "usetls": false,
+        "compatmode": false,
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    },
+    {
+        "id": "54e22d5b.12f794",
+        "type": "ui_tab",
+        "z": "",
+        "name": "Klima",
+        "icon": "fa-sun-o 2x",
+        "order": 3,
+        "disabled": false,
+        "hidden": false
+    }
+]

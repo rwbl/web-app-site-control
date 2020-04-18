@@ -1,0 +1,58 @@
+[
+    {
+        "id": "98793125.02979",
+        "type": "subflow",
+        "name": "sunriseset",
+        "info": "Get the times for the sunrise,sunset and daylight\n\n**INPUT**\n\n**Payload**\n\nLocation Latitude & Longitude as JSON object.\n\n_Example:_ {\"lat\": 53.63647,\"lon\": 9.798251}\n\n**OUTPUT**\n\nJSON object with key:value pairs:\n\n**sunrise** = HH:MM\n\n**sunset** = HH:MM\n\n**daylight** = HH:MM\n\n_Example:_ \n\nUsage msg.payload.sunrise ...\n\n**CREDITS**\n\nFunction SunriseSunset = Copyright 2011-2013 Preston Hunt <me@prestonhunt.com>\n",
+        "category": "",
+        "in": [
+            {
+                "x": 60,
+                "y": 60,
+                "wires": [
+                    {
+                        "id": "7e88ff99.0ebf3"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 340,
+                "y": 60,
+                "wires": [
+                    {
+                        "id": "7e88ff99.0ebf3",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#FFCC66",
+        "status": {
+            "x": 340,
+            "y": 160,
+            "wires": [
+                {
+                    "id": "7e88ff99.0ebf3",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "7e88ff99.0ebf3",
+        "type": "function",
+        "z": "98793125.02979",
+        "name": "Set Daylight Info",
+        "func": "// Get the times for the sunrise,sunset and daylight\n// Requires as input a msg.paylog with lat & lon as json:\n// Example: {\"lat\": 53.63647,\"lon\": 9.798251}\n// Returns\n// msg.payload.sunrise  // 06:58\n// msg.payload.sunset   // 19:54\n// msg.payload.daylight // 12:04\n//\n// CREDITS\n// Function SunriseSunset = Copyright 2011-2013 Preston Hunt <me@prestonhunt.com>\n\nconst DEBUG = global.get(\"debug\");\n//const DEBUG = true;\n\n// START SUNRISETCALC\n// Calculate time sunrise/set\nvar SunriseSunset = function( utcFullYear, utcMonth, utcDay, latitude, longitude ) {\n    this.zenith = 90 + 50/60; //   offical      = 90 degrees 50'\n                              //   civil        = 96 degrees\n                              //   nautical     = 102 degrees\n                              //   astronomical = 108 degrees\n\n    this.utcFullYear = utcFullYear;\n    this.utcMonth = utcMonth;\n    this.utcDay = utcDay;\n    this.latitude = latitude;\n    this.longitude = longitude;\n\n    this.rising = true; // set to true for sunrise, false for sunset\n    this.lngHour = this.longitude / 15;\n};\n\nSunriseSunset.prototype = {\n    sin: function( deg ) { return Math.sin( deg * Math.PI / 180 ); },\n    cos: function( deg ) { return Math.cos( deg * Math.PI / 180 ); },\n    tan: function( deg ) { return Math.tan( deg * Math.PI / 180 ); },\n    asin: function( x ) { return (180/Math.PI) * Math.asin(x); },\n    acos: function( x ) { return (180/Math.PI) * Math.acos(x); },\n    atan: function( x ) { return (180/Math.PI) * Math.atan(x); },\n\n    getDOY: function() {\n        var month = this.utcMonth,\n            year = this.utcFullYear,\n            day = this.utcDay;\n\n        var N1 = Math.floor( 275 * month / 9 );\n        var N2 = Math.floor( (month + 9) / 12 );\n        var N3 = (1 + Math.floor((year - 4 * Math.floor(year / 4 ) + 2) / 3));\n        var N = N1 - (N2 * N3) + day - 30;\n        return N;\n    },\n\n    approximateTime: function() {\n        var doy = this.getDOY();\n        if ( this.rising ) {\n            return doy + ((6 - this.lngHour) / 24);\n        } else {\n            return doy + ((18 - this.lngHour) / 24);\n        }\n    },\n\n    meanAnomaly: function() {\n        var t = this.approximateTime();\n        return (0.9856 * t) - 3.289;\n    },\n\n    trueLongitude: function() {\n        var M = this.meanAnomaly();\n        var L = M + (1.916 * this.sin(M)) + (0.020 * this.sin(2 * M)) + 282.634;\n        return L % 360;\n    },\n\n    rightAscension: function() {\n        var L = this.trueLongitude();\n        var RA = this.atan(0.91764 * this.tan(L));\n        RA %= 360;\n\n        var Lquadrant  = (Math.floor( L/90)) * 90;\n        var RAquadrant = (Math.floor(RA/90)) * 90;\n        RA = RA + (Lquadrant - RAquadrant);\n        RA /= 15;\n\n        return RA;\n    },\n\n    sinDec: function() {\n        var L = this.trueLongitude(),\n            sinDec = 0.39782 * this.sin(L);\n\n        return sinDec;\n    },\n\n    cosDec: function() {\n        return this.cos(this.asin(this.sinDec()));\n    },\n\n    localMeanTime: function() {\n        var cosH = (this.cos(this.zenith) - (this.sinDec() * this.sin(this.latitude))) / (this.cosDec() * this.cos(this.latitude));\n\n        if (cosH >  1) {\n            return \"the sun never rises on this location (on the specified date)\";\n        } else if (cosH < -1) {\n            return \"the sun never sets on this location (on the specified date)\";\n        } else {\n            var H = this.rising ? 360 - this.acos(cosH) : this.acos(cosH);\n            H /= 15;\n            var RA = this.rightAscension();\n            var t = this.approximateTime();\n            var T = H + RA - (0.06571 * t) - 6.622;\n            return T;\n        }\n    },\n\n    hoursRange: function( h ) {\n        return (h+24) % 24;\n    },\n\n    UTCTime: function() {\n        var T = this.localMeanTime();\n        var UT = T - this.lngHour;\n        return this.hoursRange( UT );\n        //if ( UT < 0 ) UT += 24;\n        //return UT % 24;\n    },\n\n    sunriseUtcHours: function() {\n        this.rising = true;\n        return this.UTCTime();\n    },\n\n    sunsetUtcHours: function() {\n        this.rising = false;\n        return this.UTCTime();\n    },\n\n    sunriseLocalHours: function(gmt) {\n        return this.hoursRange( gmt + this.sunriseUtcHours() );\n    },\n\n    sunsetLocalHours: function(gmt) {\n        return this.hoursRange( gmt + this.sunsetUtcHours() );\n    },\n\n    // utcCurrentHours is the time that you would like to test for daylight, in hours, at UTC\n    // For example, to test if it's daylight in Tokyo (GMT+9) at 10:30am, pass in\n    // utcCurrentHours=1.5, which corresponds to 1:30am UTC.\n    isDaylight: function( utcCurrentHours ) {\n        var sunriseHours = this.sunriseUtcHours(),\n            sunsetHours = this.sunsetUtcHours();\n\n        if ( sunsetHours < sunriseHours ) {\n            // Either the sunrise or sunset time is for tomorrow\n            if ( utcCurrentHours > sunriseHours ) {\n                return true;\n            } else if ( utcCurrentHours < sunsetHours ) {\n                return true;\n            } else {\n                return false;\n            }\n        }\n\n        if ( utcCurrentHours >= sunriseHours ) {\n            return utcCurrentHours < sunsetHours;\n        } \n\n        return false;\n    }\n};\n// END SUNRISETCALC\n\n// Converts the time Hours.MinutesFraction to HH:MM\n// Parameter - time, i.e. 6.78\n// Returns - time, i.e. 06:47\nvar getTimeStr = function(time) {\n    var result = \"\";\n    var Hour = Math.floor(time);\n    var Min = Math.round((time % 1) * 60, 0);\n    if (Min == 60) {\n        Hour = Hour + 1;\n        Min = 0;\n    }\n    Hour = (Hour < 10) ? \"0\" + Hour : Hour\n    Min = (Min < 10) ? \"0\" + Min : Min\n    result = Hour + \":\" + Min;\n    return result;\n}\n\n// Calculates the time difference in HH:MM\n// Parameter:\n// start - start time HH:MM\n// end - end time HH:MM\nvar getTimeDiff = function(starttime,endtime){\n    var t1 = starttime.split(':'), t2 = endtime.split(':');\n    var d1 = new Date(1970, 1, 1, t1[0], t1[1]),\n    d2 = new Date(1970, 1, 1, t2[0], t2[1]);\n    var difftime = new Date(d2 - d1);\n    var hours = difftime.getUTCHours()\n    hours = (hours < 10) ? \"0\" + hours : hours;\n    var minutes = difftime.getUTCMinutes();\n    minutes = (minutes < 10) ? \"0\" + minutes : minutes;\n    if (DEBUG) node.warn(hours + \":\" + minutes);\n    return  hours + \":\" + minutes;\n}\n\n// getDaylightInfo(53.636470, 9.798251)\nvar getDaylightInfo = function(lat,lon) {\n    if (DEBUG) node.warn(\"lat=\" + lat + \", lon=\" + lon)\n    var result = {};\n    var now = new Date();\n    var nowdate = now.getFullYear() + \"-\"+ (now.getMonth()+1) + \"-\"+ now.getDate();\n    var tzoffset = (now.getTimezoneOffset() / 60) * -1;\n    var location = new SunriseSunset( now.getFullYear(), now.getMonth() + 1, now.getDate(), lat, lon);\n    result.sunrise = getTimeStr(location.sunriseLocalHours(tzoffset));\n    result.sunset = getTimeStr(location.sunsetLocalHours(tzoffset));\n    result.daylight = getTimeDiff(result.sunrise, result.sunset);\n    if (DEBUG) node.warn(tzoffset + \",\"+ nowdate + \":\" + result.sunrise + \" - \"+ result.sunset + \" = \" + result.daylight);\n    return result;\n}\n\nif (DEBUG) node.warn(msg.payload);\n\n// Get the daylight info\nmsg.payload = getDaylightInfo(msg.payload.lat, msg.payload.lon);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 200,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    }
+]

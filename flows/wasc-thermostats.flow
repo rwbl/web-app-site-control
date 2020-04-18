@@ -1,0 +1,915 @@
+[
+    {
+        "id": "8f4c6b76.9e2ae8",
+        "type": "subflow",
+        "name": "rmdev dp id",
+        "info": "",
+        "category": "",
+        "in": [
+            {
+                "x": 40,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "13353523.a270bb"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 780,
+                "y": 40,
+                "wires": [
+                    {
+                        "id": "c4c48ed.986d37",
+                        "port": 0
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#00FF00"
+    },
+    {
+        "id": "13353523.a270bb",
+        "type": "function",
+        "z": "8f4c6b76.9e2ae8",
+        "name": "dpid: Set URL Device Get State",
+        "func": "// set the url xml-api to get the state for a device\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// The msg.topic holds the device datapoint\nconst deviceid = msg.topic;\n\n// The msg.payload defines optional device datapoints\n// Set as flow context because used by the function getting the datapoints\n// If left blank all datapoints are returned\nflow.set(\"datapoints\",msg.payload);\n\nif (DEBUG) node.warn(\"Topic deviceid:\" + deviceid + \", Payload datapoints:\" + msg.payload)\n\n// ccuip/addons/xmlapi/state.cgi?device_id=1541\nmsg.url = global.get(\"ccuip\") + \"/addons/xmlapi/state.cgi?device_id=\" + deviceid;\n// if (DEBUG === true) node.warn(\"URL:\" + msg.url);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 250,
+        "y": 80,
+        "wires": [
+            [
+                "c81f8c24.63333"
+            ]
+        ]
+    },
+    {
+        "id": "c81f8c24.63333",
+        "type": "http request",
+        "z": "8f4c6b76.9e2ae8",
+        "name": "Request Device State",
+        "method": "GET",
+        "ret": "txt",
+        "paytoqs": false,
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 280,
+        "y": 140,
+        "wires": [
+            [
+                "a55f25aa.2c09e8"
+            ]
+        ]
+    },
+    {
+        "id": "a55f25aa.2c09e8",
+        "type": "function",
+        "z": "8f4c6b76.9e2ae8",
+        "name": "dpid: Correct Datapoints",
+        "func": "// Correct strings in the datapoints XML response.\nvar statelist = msg.payload;\n\n// \"\"\"\" to be replaced to \"\"\nstatelist.replace(\"\\\"\\\"\",\"\");\n// Assign the corrected statelist\nmsg.payload = statelist;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 270,
+        "y": 200,
+        "wires": [
+            [
+                "8c872b57.903868"
+            ]
+        ]
+    },
+    {
+        "id": "8c872b57.903868",
+        "type": "xml",
+        "z": "8f4c6b76.9e2ae8",
+        "name": "Convert XML",
+        "property": "payload",
+        "attr": "",
+        "chr": "",
+        "x": 310,
+        "y": 260,
+        "wires": [
+            [
+                "c4c48ed.986d37"
+            ]
+        ]
+    },
+    {
+        "id": "c4c48ed.986d37",
+        "type": "function",
+        "z": "8f4c6b76.9e2ae8",
+        "name": "dpid: Set Datapoints ise_id",
+        "func": "// Get all device or selected datapoints depending flow context \"datapoints\".\n// If empty all datapoints are returned else the datapoints as defined as CVS with their type.\n// Types examples are LOW_BAT, STATE\n// The msg returns a json object with datapoints TYPE:VALUE:\n// {STATE:\"1\", LOW_BAT:\"false\", ...}\n// Get a datapoint from the payload, i.e. msg.payload.STATE which gives \"1\"\n\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// define the JSON object1rray with the datapoints\n// {ISE_ID:\"NNNN\", STATE:\"false\" ...}, \nvar devicedatapoints = {};\n\n// Get all datapoints\nfunction getDatapoints(devicechannels){\n    var result = {};\n    // loop over the devicechannels datapoints\n    devicechannels.forEach(function(channel) {\n        // get the datapoints\n        datapoints = channel.datapoint;\n        if (datapoints !== undefined) {\n            // if (DEBUG) node.warn(\"Channel datapoints=\" + datapoints.length);   //\"Channel datapoints=8\"\n            // get the channel datapoints\n            datapoints.forEach(function(datapoint){\n                devicedatapoints[datapoint.$.type] = datapoint.$.ise_id;\n                if (DEBUG) node.warn(\"Datapoint=\" + datapoint.$.ise_id + \":\" + datapoint.$.type + \"=\" + datapoint.$.value);\n            });\n        }\n    });\n    return result;\n}\n\n// get the datapoint ise_id and set the topic & flow context datapoint type to the datapoint ise_id\nfunction getDatapointIseId(devicechannels,datapointtype){\n    var result = {};\n    // loop over the devicechannels datapoints\n    devicechannels.forEach(function(channel) {\n        // get the datapoints\n        datapoints = channel.datapoint;\n        if (datapoints !== undefined) {\n            // if (DEBUG) node.warn(\"Channel datapoints=\" + datapoints.length);   //\"Channel datapoints=8\"\n            // get the channel datapoints\n            datapoints.forEach(function(datapoint){\n                if (datapoint.$.type == datapointtype.toUpperCase()) {\n                    devicedatapoints[datapoint.$.type] = datapoint.$.ise_id;\n                    if (DEBUG) node.warn(\"Datapoint=\" + datapoint.$.ise_id + \":\" + datapoint.$.type + \"=\" + datapoint.$.value);\n                }\n            });\n        }\n    });\n    return result;\n}\n\n// get the single device channels from xml into json format\ndevicechannels = msg.payload.state.device[0].channel;\ndevicename = msg.payload.state.device[0].$.name;\nif (DEBUG) node.warn(\"Device \" + devicename + \", channels=\" + devicechannels.length);   //\"Device channels=8\"\n// if (DEBUG) node.warn(devicechannels);   //8 objects\n\n// Check the flow context datapoints\n// split the flow context \"datapoints\" in an array\n// if (DEBUG) node.warn(\"Search Datapoints:\" + flow.get(\"datapoints\"));\nif (flow.get(\"datapoints\") === \"\") {\n    getDatapoints(devicechannels);\n}\nelse {\n    searchdatapoints = flow.get(\"datapoints\").split(\",\");\n    searchdatapoints.forEach(function(datapoint){\n        getDatapointIseId(devicechannels,datapoint);\n    });\n}\n\nmsg.payload = devicedatapoints;\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 560,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "49fedcb.767a124",
+        "type": "tab",
+        "label": "WASC-Thermostats",
+        "disabled": false,
+        "info": "HomematicIP Thermostat Control.\nStatus update every 30 seconds."
+    },
+    {
+        "id": "6f3ac85c.e53f78",
+        "type": "ui_dropdown",
+        "z": "49fedcb.767a124",
+        "name": "Select Thermostat",
+        "label": "",
+        "tooltip": "",
+        "place": "",
+        "group": "1a40c09e.657e3f",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "options": [],
+        "payload": "",
+        "topic": "",
+        "x": 670,
+        "y": 100,
+        "wires": [
+            [
+                "f997b2bc.afda4"
+            ]
+        ]
+    },
+    {
+        "id": "4ee0945b.10bf0c",
+        "type": "inject",
+        "z": "49fedcb.767a124",
+        "name": "Request Device State",
+        "topic": "",
+        "payload": "deviceid",
+        "payloadType": "flow",
+        "repeat": "60",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.3",
+        "x": 150,
+        "y": 160,
+        "wires": [
+            [
+                "f997b2bc.afda4"
+            ]
+        ]
+    },
+    {
+        "id": "cf6482a1.b677",
+        "type": "comment",
+        "z": "49fedcb.767a124",
+        "name": "WASC-Thermostats - Tab Heizung, Group Heizung; Update  @1min",
+        "info": "Control the HomematicIP Hm-eTRV thermostat devices - brief description.\n\nFor each thermostat the datapoint type is used to get the value from the channels (NO NEED FOR THE DATAPOINT ISE_ID):\nACTUAL_TEMPERATURE,LEVEL,LOW_BAT,SET_POINT_TEMPERATURE,ACTIVE_PROFILE\n\nThe values (properties from the result of the HTTP API request) are used to display in dashboard ui nodes and to control the setpoint.\n\nThe devices to control are defined in a flow context holding the device name and the ise_id (see function node \"Set Devices Name:ise_id\").\nThe data is used to build the ui_dropdown select options. Add or change devices in this node.\n\nTo set a setpoint, the ui_dropdown node is used which has predefined values (i.e. 17,18,19 etc and AUS (OFF)). A HTTP XML-API request is triggered to RaspMatic to action.\n\nThe battery information, displayed in a ui_text node, is set between OK and Niedrig (Low).\n",
+        "x": 260,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "7111fdfc.8e05f4",
+        "type": "ui_gauge",
+        "z": "49fedcb.767a124",
+        "name": "Temperature",
+        "group": "1a40c09e.657e3f",
+        "order": 2,
+        "width": "0",
+        "height": "0",
+        "gtype": "donut",
+        "title": "",
+        "label": "°C",
+        "format": "{{msg.payload | number:1}}",
+        "min": "15",
+        "max": "25",
+        "colors": [
+            "#001eb3",
+            "#e6e600",
+            "#05ff3b"
+        ],
+        "seg1": "18",
+        "seg2": "20",
+        "x": 670,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "75e8d7cd.d9a498",
+        "type": "inject",
+        "z": "49fedcb.767a124",
+        "name": "Set Initial Device",
+        "topic": "",
+        "payload": "1541",
+        "payloadType": "num",
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.2",
+        "x": 130,
+        "y": 100,
+        "wires": [
+            [
+                "4d8c326c.0209fc"
+            ]
+        ]
+    },
+    {
+        "id": "147db73.8e02d49",
+        "type": "ui_text",
+        "z": "49fedcb.767a124",
+        "group": "1a40c09e.657e3f",
+        "order": 6,
+        "width": "0",
+        "height": "0",
+        "name": "Level",
+        "label": "Ventil",
+        "format": "{{msg.payload | number:0}}%",
+        "layout": "row-spread",
+        "x": 830,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "a3297419.5a43c8",
+        "type": "ui_dropdown",
+        "z": "49fedcb.767a124",
+        "name": "Select Setpoint",
+        "label": "",
+        "tooltip": "",
+        "place": "Wähle Sollwert",
+        "group": "1a40c09e.657e3f",
+        "order": 3,
+        "width": "0",
+        "height": "0",
+        "passthru": false,
+        "options": [
+            {
+                "label": "MIN",
+                "value": 0,
+                "type": "num"
+            },
+            {
+                "label": "",
+                "value": "23",
+                "type": "str"
+            },
+            {
+                "label": "",
+                "value": "22",
+                "type": "str"
+            },
+            {
+                "label": "",
+                "value": "21",
+                "type": "str"
+            },
+            {
+                "label": "",
+                "value": "20",
+                "type": "str"
+            },
+            {
+                "label": "",
+                "value": "19",
+                "type": "str"
+            },
+            {
+                "label": "",
+                "value": "18",
+                "type": "str"
+            },
+            {
+                "label": "",
+                "value": "17",
+                "type": "str"
+            }
+        ],
+        "payload": "",
+        "topic": "{{msg.topic}}",
+        "x": 680,
+        "y": 400,
+        "wires": [
+            [
+                "c1f2f706.01f638"
+            ]
+        ]
+    },
+    {
+        "id": "cf289cd8.727ad",
+        "type": "ui_template",
+        "z": "49fedcb.767a124",
+        "group": "1a40c09e.657e3f",
+        "name": "Set Group Name Properties",
+        "order": 4,
+        "width": 0,
+        "height": 0,
+        "format": "<style>\n/*\n    For all elements in the group\n*/\n#Heizung_Heizung_cards {\n    font-size: 20px !important;\n    background-color: \"#FF0000\" !important;\n}\n\n/*\n    For all cardtitles\n.nr-dashboard-theme ui-card-panel p.nr-dashboard-cardtitle {\n    color: #ff0000;\n}\n*/\n\n/* \n    #RaspberryMatic_Dashboard_Hue_cardtitle {\n        font-size: 20px !important;\n        background-color: \"#FF0000\" !important;\n    }\n*/\n</style>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "templateScope": "local",
+        "x": 680,
+        "y": 40,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "c1f2f706.01f638",
+        "type": "function",
+        "z": "49fedcb.767a124",
+        "name": "Set URL SET_POINT_TEMPERATURE",
+        "func": "// Define the url of changing the setpoint\n// Uses flow context SET_POINT_TEMPERATURE\n// TODO: check how to use the msg.topic set by the function set thermostat device\n\nconst DEBUG = global.get(\"debug\");\n//const DEBUG = true;\n\n// Define the payload to change the setpoint\nconst ise_id = flow.get(\"SET_POINT_TEMPERATURE\");   // number\n// const ise_id = msg.topic;                        // not working\nconst new_value = msg.payload;                      // string\n\n// Define the url for the list of devices using the state script\n// /addons/xmlapi/statechange.cgi?ise_id=12345&new_value=0.20\nmsgurl = {};\nmsgurl.url = global.get(\"ccuip\") + \"/addons/xmlapi/statechange.cgi?ise_id=\" + ise_id + \"&new_value=\" + new_value;\nif (DEBUG === true) node.warn(msgurl.url);\n\n// Set the notification message to inform state of the setpoint\n// uses flow context name\nmsgnotification = {};\nmsgnotification.topic = \"Heizung \" + flow.get(\"name\");\nif (new_value === 0){\n    msgnotification.payload = \"Sollwert geändert: Minimum\"\n} else {\n    msgnotification.payload = \"Sollwert geändert: \" + new_value.toString() + \"°C\";\n}\nif (DEBUG === true) node.warn(msgnotification.topic + \":\" + msgnotification.payload);\n\nreturn [msgurl,msgnotification];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "x": 980,
+        "y": 400,
+        "wires": [
+            [
+                "3762320d.5027be"
+            ],
+            [
+                "56926c61.c23a44"
+            ]
+        ]
+    },
+    {
+        "id": "84fa8643.2418f8",
+        "type": "ui_text",
+        "z": "49fedcb.767a124",
+        "group": "1a40c09e.657e3f",
+        "order": 7,
+        "width": "0",
+        "height": "0",
+        "name": "Battery",
+        "label": "Batterie",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "x": 840,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "3762320d.5027be",
+        "type": "http request",
+        "z": "49fedcb.767a124",
+        "name": "Request Device StateChange",
+        "method": "GET",
+        "ret": "txt",
+        "paytoqs": false,
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 1330,
+        "y": 400,
+        "wires": [
+            [
+                "b2fa2c71.1e3e8"
+            ]
+        ]
+    },
+    {
+        "id": "56926c61.c23a44",
+        "type": "ui_toast",
+        "z": "49fedcb.767a124",
+        "position": "top right",
+        "displayTime": "3",
+        "highlight": "",
+        "sendall": true,
+        "outputs": 0,
+        "ok": "OK",
+        "cancel": "",
+        "raw": false,
+        "topic": "",
+        "name": "Notify Device StateChange",
+        "x": 1320,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "7a1df8b2.728708",
+        "type": "ui_switch",
+        "z": "49fedcb.767a124",
+        "name": "Set Profile Winter/Summer",
+        "label": "Winter / Sommer",
+        "tooltip": "",
+        "group": "1a40c09e.657e3f",
+        "order": 8,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "decouple": "false",
+        "topic": "",
+        "style": "",
+        "onvalue": "2",
+        "onvalueType": "num",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "1",
+        "offvalueType": "num",
+        "officon": "",
+        "offcolor": "",
+        "x": 720,
+        "y": 340,
+        "wires": [
+            [
+                "b00dff12.1c736"
+            ]
+        ]
+    },
+    {
+        "id": "4d8c326c.0209fc",
+        "type": "function",
+        "z": "49fedcb.767a124",
+        "name": "Set Devices Name:ise_id",
+        "func": "// Configure the DP of the thermostat devices\n// The flowvar or each of the thermostats must be unique\n// The DP is used in the switch node to select the device\n\nconst DEBUG = global.get(\"debug\");\n\n// Define the flow vars (context).\n// Each property has a name, index (dp):\n// name,battery,setpoint,temperature,valve,profile\n// The name is used for the select options of the ui_dropdown\n// The profile is used to set the thermostat profile for all thermostats to 1 (winter) or 2 (summer)\n// SET_POINT_TEMPERATURE,ACTUAL_TEMPERATURE,LOW_BAT,LEVEL,ACTIVE_PROF\n\ndevices = [\n    {\"MakeLab\":1541},\n    {\"Wohnzimmer-1\":3543},\n    {\"Wohnzimmer-2\":3375},\n    {\"Esszimmer\":3637},\n    {\"Bad\":3435},\n    {\"Dusche\":3489},\n    {\"Flur\":3691}\n    ];\n\n// Set the thermostat devices as global context\nglobal.set(\"thermostatdevices\", devices);\n\n// Set the select options Name:Index from the previous devices array\n// The name:index has devices array index 0 (the first entry - there is only one key:valie pair)\nfunction setOptions(item, index){\n    const name = Object.keys(item)[0];      //MakeLab\n    const value = Object.values(item)[0];   //1541\n    let obj = {};\n    obj[name] = value;\n    msg.options.push(obj);\n    if (DEBUG === true) node.warn(\"Set Options:Name\" + name + \",Value\" + value);    \n}\n// Init the options array and add the select item from the devices array first entry\nmsg.options = [];\ndevices.forEach(setOptions);\n\n// Define the flow context from the devices array\n// battery,setpoint,temperature,valve\nfunction setFlowContext(item, index){\n    // Define the device properties\n    const name = Object.keys(item)[0];  //MakeLab\n    const flowvar = Object.values(item)[0].toString();  // 0\n    // Create  JSON string\n    var jsonstr = '{\"name\":\"' + name +'\"' + '}';\n    if (DEBUG === true) node.warn(jsonstr);\n    // Parse the JSON string to an object and add to the flow context nmed flowvar (i.e. !0\", \"1\" ...)\n    var obj = JSON.parse(jsonstr);\n    flow.set(flowvar, obj);\n    if (DEBUG === true){\n        node.warn(flowvar + \",\" + name);\n        var objdev = flow.get(flowvar);\n        node.warn(\"Name:\" + flowvar+\"=\"+objdev.name);\n    }\n}\ndevices.forEach(setFlowContext);\n\n// Set the initial device\nvar deviceid = msg.payload.toString();\nflow.set(\"deviceid\",deviceid);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 450,
+        "y": 100,
+        "wires": [
+            [
+                "6f3ac85c.e53f78"
+            ]
+        ]
+    },
+    {
+        "id": "e781cb89.2626f8",
+        "type": "function",
+        "z": "49fedcb.767a124",
+        "name": "Set Datapoints",
+        "func": "// Set the flow properties for the thermostat given by its device ise_id, i.e. thermostat makelab = 1541\n// The channels for the selected device are obtained from the result of the XML-API device state request.\n// The result is a single device[0] with one or more channels. The datapoints are obtained from the channels.\n// The datapoint type is used to get the value from the channels (NO NEED FOR DATAPOINT ISE_ID):\n// ACTUAL_TEMPERATURE,LEVEL,LOW_BAT,SET_POINT_TEMPERATURE,ACTIVE_PROFILE\n\nconst DEBUG = global.get(\"debug\");\nconst SETPOINTOFF = 12;\n\n// get the datapoint value and set the topic & flow context datapoint type to the datapoint ise_id\nfunction getDatapointValue(devicechannels,datapointtype){\n    var result = {};\n    // loop over the devicechannels datapoints\n    devicechannels.forEach(function(channel) {\n        // get the datapoints\n        datapoints = channel.datapoint;\n        if (datapoints !== undefined) {\n            // if (DEBUG) node.warn(\"Channel datapoints=\" + datapoints.length);   //\"Channel datapoints=8\"\n            // get the channel datapoints\n            datapoints.forEach(function(datapoint){\n                if (datapoint.$.type == datapointtype.toUpperCase()) {\n\t\t\t\t\t// set flow context which is the type and the ise_id\n\t\t\t\t\tflow.set(datapointtype, datapoint.$.ise_id)\n\t\t\t\t\tresult.topic = datapoint.$.ise_id;\n                    result.payload = datapoint.$.value;\n                    // if (DEBUG) node.warn(\"Datapoint=\" + datapoint.$.ise_id + \":\" + datapoint.$.type + \"=\" + datapoint.$.value);\n                }\n            });\n        }\n    });\n    return result;\n}\n\n// get the single device channels from xml into json format\ndevicechannels = msg.payload.state.device[0].channel;\ndevicename = msg.payload.state.device[0].$.name;\n// set the flow context name\nflow.set(\"name\", devicename);\nif (DEBUG) node.warn(\"Device \" + devicename + \", channels=\" + devicechannels.length);   //\"Device channels=8\"\n// if (DEBUG) node.warn(devicechannels);   //8 objects\n\n// Build the json payload for the datapoints. Adjust some values.\n// Each device has its own messge output\nvar msgtemperature = getDatapointValue(devicechannels,\"ACTUAL_TEMPERATURE\");\n\nvar msglevel = getDatapointValue(devicechannels,\"LEVEL\");\nmsglevel.payload = msglevel.payload * 100;\n\nvar msglowbat = getDatapointValue(devicechannels,\"LOW_BAT\");\nmsglowbat.payload = \"OK\"\nif (msglowbat.payload == \"true\") msglowbat.payload = \"Niedrig\";\n\nvar msgsetpoint = getDatapointValue(devicechannels,\"SET_POINT_TEMPERATURE\");\nvar setpoint = parseInt(msgsetpoint.payload).toFixed(0);\nif (setpoint <= SETPOINTOFF) setpoint = 0;\nmsgsetpoint.payload = setpoint;\n\nvar msgprofile = getDatapointValue(devicechannels,\"ACTIVE_PROFILE\");\n\n// mqtt topic & payload published\nvar msgmqtt = {};\n// msgmqtt.topic = \"wasc/thermostats\";\nmsgmqtt.payload = {\n    \"id\":parseInt(flow.get(\"deviceid\")),\n    \"name\":flow.get(\"name\"),\n    \"temperature\":parseFloat(msgtemperature.payload),\n    \"level\":parseInt(msglevel.payload),\n    \"battery\":msglowbat.payload,\n    \"setpoint\":parseInt(msgsetpoint.payload),\n    \"profile\":parseInt(msgprofile.payload)\n};\n\n// Show the last update\nnode.status({fill:\"green\",shape:\"dot\",text:\"Updated \" + new Date().toLocaleTimeString() });\n\nif (DEBUG) node.warn(\n    \"N=\" + devicename + \",\" + \n    \"T=\"+msgtemperature.payload + \",\" +  \n    \"S=\"+msgsetpoint.payload + \",\" + \n    \"L=\"+msglevel.payload + \",\" +   \n    \"B=\"+msglowbat.payload + \",\" + \n    \"P=\"+msgprofile.payload \n);\n\n// Return all device messages values\nreturn [msgtemperature,msglevel,msglowbat,msgsetpoint,msgprofile,msgmqtt];\n",
+        "outputs": 6,
+        "noerr": 0,
+        "x": 440,
+        "y": 320,
+        "wires": [
+            [
+                "7111fdfc.8e05f4"
+            ],
+            [
+                "94536c21.095ea"
+            ],
+            [
+                "ac9b41a0.5a6a7"
+            ],
+            [
+                "a3297419.5a43c8"
+            ],
+            [
+                "7a1df8b2.728708"
+            ],
+            [
+                "f0f5dbcb.8109f"
+            ]
+        ]
+    },
+    {
+        "id": "f997b2bc.afda4",
+        "type": "function",
+        "z": "49fedcb.767a124",
+        "name": "Set URL Device State",
+        "func": "// set the url xml-api to get the state for a device\nconst DEBUG = global.get(\"debug\");\n\n// Get the device id and set flow context used for the inject node to update in intervals\nvar deviceid = msg.payload.toString();\nflow.set(\"deviceid\",deviceid);\nif (DEBUG === true) node.warn(\"Thermostat Device selected=\" + deviceid);\n\n// Set the msg payload from the deviceid flow context - see function \"configure thermostat idx\"\nmsg.payload = flow.get(deviceid);\n// Keep the device name as used by mqtt\nflow.set(\"name\", msg.payload.name);\nif (DEBUG === true) node.warn(\"Thermostat Device selected=\" + msg.payload.name);\n\n// ccuip/addons/xmlapi/state.cgi?device_id=1541\nmsg.url = global.get(\"ccuip\") + \"/addons/xmlapi/state.cgi?device_id=\" + deviceid;\nif (DEBUG === true) node.warn(msg.url);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 420,
+        "y": 160,
+        "wires": [
+            [
+                "57f4635c.e9778c"
+            ]
+        ]
+    },
+    {
+        "id": "57f4635c.e9778c",
+        "type": "http request",
+        "z": "49fedcb.767a124",
+        "name": "Request Device State",
+        "method": "GET",
+        "ret": "txt",
+        "paytoqs": false,
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 640,
+        "y": 160,
+        "wires": [
+            [
+                "3bac922c.db025e"
+            ]
+        ]
+    },
+    {
+        "id": "3bac922c.db025e",
+        "type": "function",
+        "z": "49fedcb.767a124",
+        "name": "Correct Datapoints",
+        "func": "// Correct strings in the datapoints XML response.\nvar statelist = msg.payload;\n\n// \"\"\"\" to be replaced to \"\"\nstatelist.replace(\"\\\"\\\"\",\"\");\n// Assign the corrected statelist\nmsg.payload = statelist;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 850,
+        "y": 160,
+        "wires": [
+            [
+                "34ba8341.5b57fc"
+            ]
+        ]
+    },
+    {
+        "id": "34ba8341.5b57fc",
+        "type": "xml",
+        "z": "49fedcb.767a124",
+        "name": "Convert XML",
+        "property": "payload",
+        "attr": "",
+        "chr": "",
+        "x": 450,
+        "y": 220,
+        "wires": [
+            [
+                "e781cb89.2626f8"
+            ]
+        ]
+    },
+    {
+        "id": "b00dff12.1c736",
+        "type": "function",
+        "z": "49fedcb.767a124",
+        "name": "Set URL ACTIVE_PROFILE",
+        "func": "// Define the url of changing the thermostat profile\n// Result is setting the profile to 1(=ON) or 2(=OFF) - the profiles are set in the HomeMatic WebUI.\n// Uses flow context \"ACTIVE_PROFILE\"\n// TODO: check how to use the msg.topic set by the function set thermostat device as not possible to preset in the ui_dropdown \n\nconst DEBUG = true; // global.get(\"debug\");\nconst PROFILE_ON = 1;\nconst PROFILE_OFF = 2;\n\n// Define the payload to change the setpoint\nconst ise_id = flow.get(\"ACTIVE_PROFILE\");   // number\n// const ise_id = msg.topic;                        // not working\nconst new_value = msg.payload;                      // string\n\n// Define the url for the list of devices using the state script\n// /addons/xmlapi/statechange.cgi?ise_id=12345&new_value=0.20\nmsgurl = {};\nmsgurl.url = global.get(\"ccuip\") + \"/addons/xmlapi/statechange.cgi?ise_id=\" + ise_id + \"&new_value=\" + new_value;\nif (DEBUG === true) node.warn(msgurl.url);\n\n// Set the notification message to inform state of the setpoint\n// uses flow context name\nmsgnotification = {};\nmsgnotification.topic = \"Heizung \" + flow.get(\"name\");\nif (new_value === PROFILE_ON){\n    msgnotification.payload = \"Eingeschaltet\"\n} \nif (new_value === PROFILE_OFF){\n    msgnotification.payload = \"Ausgeschaltet\"\n}\nif (DEBUG === true) node.warn(msgnotification.topic + \":\" + msgnotification.payload);\n\nreturn [msgurl,msgnotification];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "x": 1020,
+        "y": 340,
+        "wires": [
+            [
+                "3762320d.5027be"
+            ],
+            [
+                "56926c61.c23a44"
+            ]
+        ]
+    },
+    {
+        "id": "f0f5dbcb.8109f",
+        "type": "mqtt out",
+        "z": "49fedcb.767a124",
+        "name": "",
+        "topic": "wasc/thermostats",
+        "qos": "",
+        "retain": "",
+        "broker": "48368190.9c6bb",
+        "x": 690,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "154a6a8c.007035",
+        "type": "mqtt in",
+        "z": "49fedcb.767a124",
+        "name": "",
+        "topic": "wasc/thermostats/#",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "48368190.9c6bb",
+        "x": 110,
+        "y": 620,
+        "wires": [
+            [
+                "76d9d7fb.d7ba98"
+            ]
+        ]
+    },
+    {
+        "id": "76d9d7fb.d7ba98",
+        "type": "switch",
+        "z": "49fedcb.767a124",
+        "name": "Select Topic",
+        "property": "topic",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "wasc/thermostats/set",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "wasc/thermostats",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 450,
+        "y": 620,
+        "wires": [
+            [
+                "d5d4e349.f35fa"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "d5d4e349.f35fa",
+        "type": "change",
+        "z": "49fedcb.767a124",
+        "name": "Set msg & flow context",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "payload.id",
+                "tot": "msg"
+            },
+            {
+                "t": "set",
+                "p": "setpoint",
+                "pt": "flow",
+                "to": "payload.setpoint",
+                "tot": "msg"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "SET_POINT_TEMPERATURE",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 700,
+        "y": 580,
+        "wires": [
+            [
+                "37b35ba9.bda4e4",
+                "42733a88.bd2004"
+            ]
+        ]
+    },
+    {
+        "id": "37b35ba9.bda4e4",
+        "type": "subflow:8f4c6b76.9e2ae8",
+        "z": "49fedcb.767a124",
+        "name": "Get ise_id SET_POINT_TEMPERATURE",
+        "env": [],
+        "x": 760,
+        "y": 620,
+        "wires": [
+            [
+                "6f88fbe6.c65454"
+            ]
+        ]
+    },
+    {
+        "id": "308f8968.f61766",
+        "type": "inject",
+        "z": "49fedcb.767a124",
+        "name": "{\"id\":1541,\"setpoint\":5}",
+        "topic": "wasc/thermostats/set",
+        "payload": "{\"id\":1541,\"setpoint\":5}",
+        "payloadType": "json",
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 140,
+        "y": 680,
+        "wires": [
+            [
+                "76d9d7fb.d7ba98"
+            ]
+        ]
+    },
+    {
+        "id": "6f88fbe6.c65454",
+        "type": "change",
+        "z": "49fedcb.767a124",
+        "name": "Set ise_id & new_value",
+        "rules": [
+            {
+                "t": "set",
+                "p": "SET_POINT_TEMPERATURE",
+                "pt": "flow",
+                "to": "payload.SET_POINT_TEMPERATURE",
+                "tot": "msg"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "setpoint",
+                "tot": "flow"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 710,
+        "y": 660,
+        "wires": [
+            [
+                "c1f2f706.01f638"
+            ]
+        ]
+    },
+    {
+        "id": "42733a88.bd2004",
+        "type": "debug",
+        "z": "49fedcb.767a124",
+        "name": "DEBUG THERMOSTATSMQTT",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 970,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "77995224.8e4cdc",
+        "type": "comment",
+        "z": "49fedcb.767a124",
+        "name": "",
+        "info": "Bit tricky to convert mqtt message to set a thermostat setpoint.\nThe mqtt message contains JSON:\n{\"id\":1541,\"setpoint\":21}\n\nTo change the setpoint the device datapoint ise_id for the property SET_POINT_TEMPERATURE is required, as given by the url xml-api command usig the ise_id and the new_value (=the setpoint).\n\nThe id od the mqtt message is the device id This is used to get the SET_POINT_TEMPERATURE ise_id.\n",
+        "x": 660,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "d1601f33.c2f0e",
+        "type": "comment",
+        "z": "49fedcb.767a124",
+        "name": "WASC-Thermostats - MQTT",
+        "info": "**WASC-Thermostats MQTT Topic & Payload Publish & Subscribe**\n# Publish\n\n## Set Thermostat Setpoint\nChange the setpoint of a thermostat using the thermostat device ise_id and the setpoint value.\n### Topic\n`wasc/thermostats/set`\n\n### Payload\nid = device datapoint\nsetpoint = setpoint temperature 0 - 23\n`{\"id\":1541,\"setpoint\":5}`\n\n# Subscribe\n\n## Subscribe to all messages\nGet all messages published by topic `wasc/thermostats/#`.\n### Topic\n`wasc/thermostats/#`\n\n### Payload\n`{\"id\":1541, \"name\":\"Thermostat MakeLab\", \"temperature\":18.3, \"level\":100, \"battery\":\"OK\", \"setpoint\":21, \"profile\":1}`\n\n### Payload Key\n`var setpoint = msg.payload.setpoint`\n\n## Subscribe to single device\nGet dedicated thermostat information.\n### Topic\n`wasc/thermostats/get`\n\n### Payload\nid = Thermostat devce ise_id.\n`id`\n",
+        "x": 140,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "b2fa2c71.1e3e8",
+        "type": "debug",
+        "z": "49fedcb.767a124",
+        "name": "DEBUG THERMOSTATSHTTP",
+        "active": true,
+        "tosidebar": false,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 1610,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "b371a506.19125",
+        "type": "mqtt in",
+        "z": "49fedcb.767a124",
+        "name": "",
+        "topic": "wasc/thermostats/get",
+        "qos": "2",
+        "datatype": "auto",
+        "broker": "48368190.9c6bb",
+        "x": 120,
+        "y": 500,
+        "wires": [
+            [
+                "5a0f21f4.0296c8"
+            ]
+        ]
+    },
+    {
+        "id": "5a0f21f4.0296c8",
+        "type": "change",
+        "z": "49fedcb.767a124",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "deviceid",
+                "pt": "flow",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 180,
+        "y": 560,
+        "wires": [
+            [
+                "f997b2bc.afda4"
+            ]
+        ]
+    },
+    {
+        "id": "94536c21.095ea",
+        "type": "ui_template",
+        "z": "49fedcb.767a124",
+        "group": "1a40c09e.657e3f",
+        "name": "Set Label Style",
+        "order": 9,
+        "width": 0,
+        "height": 0,
+        "format": "<!--\nSet the background color & text size of the ui_text label.\n-->\n<style>\n    .nr-dashboard-widget-Ventil {\n        background-color:#404040 !important;\n        font-size: small !important;\n    }\n</style>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": false,
+        "templateScope": "local",
+        "x": 680,
+        "y": 260,
+        "wires": [
+            [
+                "147db73.8e02d49"
+            ]
+        ]
+    },
+    {
+        "id": "ac9b41a0.5a6a7",
+        "type": "ui_template",
+        "z": "49fedcb.767a124",
+        "group": "1a40c09e.657e3f",
+        "name": "Set Label Style",
+        "order": 9,
+        "width": 0,
+        "height": 0,
+        "format": "<!--\nSet the background color & text size of the ui_text label.\n-->\n<style>\n    .nr-dashboard-widget-Batterie {\n        background-color:#404040 !important;\n        font-size: small !important;\n    }\n</style>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": false,
+        "templateScope": "local",
+        "x": 680,
+        "y": 300,
+        "wires": [
+            [
+                "84fa8643.2418f8"
+            ]
+        ]
+    },
+    {
+        "id": "1a40c09e.657e3f",
+        "type": "ui_group",
+        "z": "",
+        "name": "Heizung",
+        "tab": "533dbb59.c3a3a4",
+        "disp": false,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "48368190.9c6bb",
+        "type": "mqtt-broker",
+        "z": "",
+        "name": "MQTT Broker",
+        "broker": "localhost",
+        "port": "1883",
+        "clientid": "",
+        "usetls": false,
+        "compatmode": false,
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    },
+    {
+        "id": "533dbb59.c3a3a4",
+        "type": "ui_tab",
+        "z": "",
+        "name": "Heizung",
+        "icon": "fa-thermometer-half",
+        "order": 1,
+        "disabled": false,
+        "hidden": false
+    }
+]

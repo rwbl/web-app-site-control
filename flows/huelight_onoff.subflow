@@ -1,0 +1,136 @@
+[
+    {
+        "id": "dbf43aa6.185668",
+        "type": "subflow",
+        "name": "huelight onoff",
+        "info": "Switch a **Hue Light** ON or OFF.\n\n**GLOBAL CONTEXT**\n\nThe Hue light state is set by using a HTTP API request to the Hue Bridge.\nRequired are the global context:\n - hueip - the IP address of the Hue Bridge\n - hueusername - the api user name\n\n**INPUT**\n\n**Message Topic**\n\nThe Hue light index, i.e. 1 or 2 etc.\n\n**Message Payload**\n\nThe state: True = light on, False = light off\n\n**OUTPUT**\n\n1 State on = true or false\n\n2 HTTP Result = \"OK\" or \"ERR\".\n",
+        "category": "",
+        "in": [
+            {
+                "x": 60,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "980d604d.c3e4f"
+                    }
+                ]
+            }
+        ],
+        "out": [
+            {
+                "x": 780,
+                "y": 80,
+                "wires": [
+                    {
+                        "id": "25aee157.ac4bfe",
+                        "port": 0
+                    }
+                ]
+            },
+            {
+                "x": 780,
+                "y": 160,
+                "wires": [
+                    {
+                        "id": "25aee157.ac4bfe",
+                        "port": 1
+                    }
+                ]
+            }
+        ],
+        "env": [],
+        "color": "#FDF0C2",
+        "status": {
+            "x": 580,
+            "y": 180,
+            "wires": [
+                {
+                    "id": "2c76a249.48e3be",
+                    "port": 0
+                }
+            ]
+        }
+    },
+    {
+        "id": "980d604d.c3e4f",
+        "type": "function",
+        "z": "dbf43aa6.185668",
+        "name": "Set URL OnOff",
+        "func": "/*\n// Switch a light on or off using http api PUT request. NOTE THE PUT REQUEST and not GET!\nThe msg.url is used switch the device:\nhttp://hue-bridge-ip/api/username/lights/lightnr/state\nThe msg.payload (as JSON object) is used as the body for the http api request.\n{\"on\":true} or {\"on\":false}\nNOTE: the msg.payload must not be set in \"\"!\nThe result of the http api put request is a json string or statuscode, i.e. 200:\n[{\"success\":{\"/lights/5/state/on\":true}}]\nUses global.context: hueip, hueusername, debug\n*/\nconst DEBUG = global.get(\"debug\");\n// const DEBUG = true;\n\n// Set the device id 1..N from the msg.topic\nconst deviceid = msg.topic;\n\n// Define the url to set the device state\nmsg.url = global.get(\"hueip\") + \"/api/\" + global.get(\"hueusername\") + \"/lights/\" + deviceid + \"/state\";\n\n// Set the msg.payload to the state which is true or false from the msg.payload input\nconst state = msg.payload;\nif (DEBUG) node.warn(\"State=\" +  state)\nmsg.payload = { \"on\": state };\n\nif (DEBUG === true) node.warn(msg.url + \"#Body:\" + msg.payload + \"#on\" + msg.payload.on);\n\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 180,
+        "y": 120,
+        "wires": [
+            [
+                "2c76a249.48e3be"
+            ]
+        ]
+    },
+    {
+        "id": "2c76a249.48e3be",
+        "type": "http request",
+        "z": "dbf43aa6.185668",
+        "name": "Send HTTP PUT Request",
+        "method": "PUT",
+        "ret": "obj",
+        "paytoqs": false,
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "x": 410,
+        "y": 120,
+        "wires": [
+            [
+                "25aee157.ac4bfe"
+            ]
+        ]
+    },
+    {
+        "id": "25aee157.ac4bfe",
+        "type": "function",
+        "z": "dbf43aa6.185668",
+        "name": "Set Result",
+        "func": "/*\nCheck the result and set as output status OK or ERR, light state true or false\nThe input msg has properties:\nstatusCode, i.e. 200 if request is ok\nmsg.payload, i.e. /lights/5/state/on=true with light number and state\nUses global.context: debug\n*/\nconst DEBUG = global.get(\"debug\");\n//const DEBUG = true;\n\n// HTTP response payload\nvar arr = msg.payload;\n// There is only 1 element in the array\n// 1[{\"success\":{\"/lights/5/state/on\":false}}]\nvar msgstate = {};\narr.forEach(function(item){\n    // get the item {\"/lights/5/state/on\":false}} as object\n    obj = Object.values(item)[0];\n    // get the state from the item object, which the object value with array index 0, i.e. false\n    msgstate.payload = Object.values(obj)[0];\n    if (DEBUG === true) node.warn(Object.keys(obj)[0] + \"=\" + Object.values(obj)[0]); // /lights/5/state/on=true\n});\n\n// statusCode\nif (msg.statusCode == 200) {\n    msg.payload = \"OK\"\n}\nelse {\n    msg.payload = \"ERR\"\n}\n\nif (DEBUG === true) node.warn(msg.url + \"#Body:\" + msg.payload);\n\n// OK or ERR, true or false, text message\nreturn [msgstate,msg];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "x": 630,
+        "y": 120,
+        "wires": [
+            [],
+            []
+        ]
+    },
+    {
+        "id": "84da1adf.9e7118",
+        "type": "comment",
+        "z": "dbf43aa6.185668",
+        "name": "OK or ERR",
+        "info": "",
+        "x": 880,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "49c2e2d4.b1cfec",
+        "type": "comment",
+        "z": "dbf43aa6.185668",
+        "name": "true or false",
+        "info": "",
+        "x": 890,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "4ba65af.cddeba4",
+        "type": "comment",
+        "z": "dbf43aa6.185668",
+        "name": "topic=HueNr,payload=true or false",
+        "info": "",
+        "x": 180,
+        "y": 40,
+        "wires": []
+    }
+]
