@@ -29,6 +29,10 @@ To create a Home Automation & Information System, running on a Raspberry Pi 3B+,
 #### Flows of the functions = just as an illustration
 ![wasc-flows](https://user-images.githubusercontent.com/47274144/79632671-28877c00-8161-11ea-975f-a91ef5f6ad84.png)
 
+#### WASC-Box
+Fun project, which is a custom digital Lego creation displaying data and control functions. 
+Hardware Raspberry Pi ZeroW, LCD20x4 display, Pushbuttons. Still some work in progress.
+
 ### Documentation
 The folder **flows** contain the Node-RED flows & subflows (formatted). Use the Node-RED import function to import as new flow.
 _IN PROGRESS_ (not shared yet): PDF document **webapp-sitecontrol.pdf** describing the solution and concept more in detail.
