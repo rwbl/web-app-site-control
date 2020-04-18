@@ -50,4 +50,4 @@ To the developers of Node-RED & additional nodes & flows and to all sharing rela
 Without these, it would not be possible to create this project.
 
 ### License
-This project is licensed under the GPL3.0 License - see the LICENSE file for details
+This project is licensed under the GNU GENERAL PUBLIC LICENSE Version 3 - see the LICENSE file for details.
