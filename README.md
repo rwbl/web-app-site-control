@@ -31,6 +31,7 @@ To create a Home Automation & Information System, running on a Raspberry Pi 3B+,
 
 #### WASC-Box
 Fun project, which is a custom LEGO® creation displaying WASC data and control functions (LEGO is a trademark of the LEGO Group). Hardware: Raspberry Pi Zero W, LCD2004 display, 4 Pushbuttons. Software: Node-RED.
+
 _Note_: Solution not finalized - work in progress on push-button handling & integrating LEDs. The initial solution displays climate data (MQTT) and a clock. The green push-button sets the setpoint of a Homematic IP thermostat, the white push-button shuts the Raspberry Pi down.
 
 ![wasc-box](https://user-images.githubusercontent.com/47274144/79644032-87bbaf80-81a6-11ea-94b5-c56f0894e807.png)
