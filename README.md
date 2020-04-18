@@ -30,9 +30,10 @@ To create a Home Automation & Information System, running on a Raspberry Pi 3B+,
 ![wasc-flows](https://user-images.githubusercontent.com/47274144/79632671-28877c00-8161-11ea-975f-a91ef5f6ad84.png)
 
 #### WASC-Box
-Fun project, which is a custom digital Lego creation displaying data and control functions. 
-Hardware: Raspberry Pi ZeroW, LCD20x4 display, Pushbuttons. Node-RED additional nodes: node-red-contrib-lcd20x4-i2c.
-Solution not finalized - work in progress on push-button handling.
+Fun project, which is a custom digital LEGO® creation displaying data and control functions (LEGO is a trademark of the LEGO Group). 
+Hardware: Raspberry Pi ZeroW, LCD20x4 display, 4 Pushbuttons. Software: Node-RED.
+_Note_: Solution not finalized - work in progress on push-button handling.
+
 ![wasc-box](https://user-images.githubusercontent.com/47274144/79644032-87bbaf80-81a6-11ea-94b5-c56f0894e807.png)
 
 ### Documentation
@@ -43,7 +44,7 @@ _IN PROGRESS_ (not shared yet): PDF document **webapp-sitecontrol.pdf** describi
 _(The versions are subject to change as keeping to the latest versions)_
 * Linux: 4.19.66-v7+ #1253
 * Node-RED: 1.0.5
-* Additional nodes: node-red-dashboard 2.20.0, node-red-contrib-bme280 1.0.0, node-red-contrib-rfxcom 2.10.0, node-red-contrib-lcd20x4-i2c 0.1.1.
+* Additional nodes: node-red-dashboard 2.20.0, node-red-contrib-bme280 1.0.0, node-red-contrib-rfxcom 2.10.0, node-red-contrib-lcd20x4-i2c 0.1.1 (used by the WASC-Box).
 
 ### Credits
 To the developers of Node-RED & additional nodes & flows and to all sharing related information.
