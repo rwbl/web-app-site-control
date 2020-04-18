@@ -18,18 +18,18 @@ To create a Home Automation & Information System, running on a Raspberry Pi 3B+,
 * Is ment as a trigger for ideas or as a suggestion building a Home Automation & Information System.
 * The solution, with the working title **WASC** is _developed further_ (functions might change).
 
-#### **WebUI** with additional information of the functions. 
+#### WebUI with additional information of the functions
 ![wasc-ui](https://user-images.githubusercontent.com/47274144/79632673-29201280-8161-11ea-9b79-02f5cb0f99eb.png)
 
-#### **Topology** with HTTP API requests between Node-RED and subsystems.
+#### Topology with HTTP API requests between Node-RED and subsystems.
 ![wasc-topology](https://user-images.githubusercontent.com/47274144/79632672-29201280-8161-11ea-90fe-257009ab8efc.png)
 
-#### **Flows** of the functions just as an illustration.
+#### Flows of the functions = just as an illustration.
 ![wasc-flows](https://user-images.githubusercontent.com/47274144/79632671-28877c00-8161-11ea-975f-a91ef5f6ad84.png)
 
 ### Documentation
 The folder **flows** contain the Node-RED flows & subflows (formatted). Use the Node-RED import function to import as new flow.
-IN PROGRESS (not shared yet): PDF document **webapp-sitecontrol.pdf** describing the solution and concept.
+_IN PROGRESS_ (not shared yet): PDF document **webapp-sitecontrol.pdf** describing the solution and concept.
 
 ### Software Versions
 _(The versions are subject to change as keeping to the latest versions)_
