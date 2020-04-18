@@ -8,15 +8,15 @@ To create a Home Automation & Information System, running on a Raspberry Pi 3B+,
 
 * Easy-to-use User Interface (WebUI, in German) accessible from any device capable running a browser - smartphones [target device], tablets, PC, SBC, TV.
 * WebUI with Tabs & Groups organised by function Heating ("Heizung"), Lights ("Lampen"), Climate ("Klima"), Switches ("Schalter"), Information ("Info").
-* Devices integrated like Homematic IP Thermostats, Philips Hue, Outdoor Weather sensors (RFXCOM), Energy consumption (Meters), Switches (Homematic IP) etc.
+* Devices integrated like Thermostats (Homematic IP), Philips Hue Lights, Outdoor Weather sensors (RFXCOM), Energy consumption (Meters), Switches (Homematic IP) etc.
 
 ### Solution
-* The application is build with [Node-RED](https://nodered.org/) and additional nodes - recommend to visit the Node-RED homepage to explore more.
-* The flow is split into functions, which are represented in the WebUI (German) by Tabs with Groups - each having its own flow.
-* The Node-RED additional nodes are used to communicate with external devices or create the WebUI (Dashboard).
-* The solution has been developed for **private use only**. To adapt for own purposes, it will need a deep dive into the various flows.
-* Is ment as a trigger for ideas or as a suggestion building a Home Automation & Information System.
-* The solution, with the working title **WASC** is _developed further_ (functions might change).
+* built with [Node-RED](https://nodered.org/) and additional nodes
+* additional nodes are used to communicate with external devices or create the WebUI (Dashboard).
+* split into functions, which are represented in the WebUI (German) by Tabs with Groups - each having its own flow.
+* created for **private use only**. To adapt for own purposes, it will need a deep dive into the various flows.
+* ment as an experiment & trigger for ideas or suggestion building a Home Automation & Information System.
+* is _developed further_ - working title **WASC**.
 
 #### WebUI with additional information of the functions
 ![wasc-ui](https://user-images.githubusercontent.com/47274144/79632673-29201280-8161-11ea-9b79-02f5cb0f99eb.png)
@@ -41,7 +41,7 @@ To the developers of Node-RED & additional flows and to all sharing related info
 Without these, it would not be possible to build this project.
 
 ### Disclaimer
-THIS DOCUMENT IS PROVIDED BY THE AUTHOR “AS IS” AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. 
+THIS SOLUTION IS PROVIDED BY THE AUTHOR “AS IS” AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. 
 IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
 PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
