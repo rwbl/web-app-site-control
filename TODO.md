@@ -1,5 +1,4 @@
-# ToDo domoticz-webapp-sitecontrol
-Status 20200128
+# ToDo web-app-site-control
 
 ### NEW: Tab Favorites, Groups
 Fast access to common used functions, i.e turn dedicated light On/Off, thermostat setpoint.
@@ -28,7 +27,7 @@ Not started.
 ### NEW: Remote Access WASC
 WASC is running in a local intranet which is not accessible from outside.
 Seek for a way to control or get information from WASC.
-An option could be to use an email listenr with specific sender, subject and body.
+An option could be to use an email listener with specific sender, subject and body.
 
 Priority: Low
 _Status_
@@ -37,7 +36,7 @@ Not started.
 ### NEW: Raspberry Pi Hardware Monitor
 Get in regular intervals hardware data and display in the Tab Info, Group Hardware Monitor.
 Solution idea:
-Bash script "hwmondata.sh" executed via exec node. The script returns a JSON object. Example output:
+Bash script "hwmontor.sh" executed via exec node. The script returns a JSON object. Example output:
 ```
 {"cpuusage":2,"cputemp":37.394,"discspaceused":16,"ramused":234,"ramfree":274,"ramusedpct":46.063} 
 ```
@@ -45,13 +44,3 @@ Bash script "hwmondata.sh" executed via exec node. The script returns a JSON obj
 Priority: Low
 _Status_
 Not started.
-
-### NEW: Coffee Machine Monitor
-See Domoticz Workbook
-See also https://discourse.nodered.org/t/coffee-pot-timer/4743
-
-Priority: Low
-_Status_
-Not started.
-
-
