@@ -32,9 +32,9 @@ The folder **flows** contain the Node-RED flows & subflows (formatted). Use the 
 IN PROGRESS (not shared yet): PDF document **webapp-sitecontrol.pdf** describing the solution and concept.
 
 ### Software Versions
-(The versions are subject to change as keeping to the latest versions)
-Linux: 4.19.66-v7+ #1253
-Node-RED: 1.0.5, node-red-dashboard 2.20.0, node-red-contrib-bme280 1.0.0, node-red-contrib-rfxcom 2.10.0
+_(The versions are subject to change as keeping to the latest versions)_
+* Linux: 4.19.66-v7+ #1253
+* Node-RED: 1.0.5, node-red-dashboard 2.20.0, node-red-contrib-bme280 1.0.0, node-red-contrib-rfxcom 2.10.0
 
 ### Credits
 To the developers of Node-RED & additional flows and to all sharing related information.
