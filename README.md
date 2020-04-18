@@ -1,4 +1,4 @@
-# Web App Site Control (WASC)
+# Web App Site Control
 A tailor made Home Automation & Information System with a WebUI for use with smartphones.
 
 ### Purpose
@@ -16,7 +16,7 @@ To create a Home Automation & Information System, running on a Raspberry Pi 3B+,
 * The Node-RED additional nodes are used to communicate with external devices or create the WebUI (Dashboard).
 * The solution has been developed for **private use only**. To adapt for own purposes, it will need a deep dive into the various flows.
 * Is ment as a trigger for ideas or as a suggestion building a Home Automation & Information System.
-* The solution is being _developed further_.
+* The solution, with the working title **WASC** is _developed further_ (functions might change).
 
 **WebUI** with additional information of the functions. 
 ![wasc-ui](https://user-images.githubusercontent.com/47274144/79632673-29201280-8161-11ea-9b79-02f5cb0f99eb.png)
