@@ -1,0 +1,17 @@
+[
+    {
+        "name": "KeyDates Item A",
+		"display": true,
+        "dates": [
+            "09-01-2020",
+            "23-12-2020"
+        ]
+    },
+    {
+        "name": "KeyDate Item B",
+		"display": true,
+        "dates": [
+            "02-10-2020"
+        ]
+    }
+]
