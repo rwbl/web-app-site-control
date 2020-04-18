@@ -14,6 +14,7 @@ To create a Home Automation & Information System, running on a Raspberry Pi 3B+,
 * built with [Node-RED](https://nodered.org/) and additional nodes.
 * additional nodes are used to communicate with external devices or create the WebUI (Dashboard).
 * modular approach, split into functions, represented in the WebUI several Tabs with Groups - each having its own flow.
+* MQTT interface to control or use the data by other systems, i.e. the WASC-BOX (a custom digital Lego creation displaying data).
 * created for **private use only**. To adapt for own purposes, it will need a deep dive into the various flows.
 * ment as an experiment & trigger for ideas or suggestion building a Home Automation & Information System.
 * being _developed further_ [more functions] - working title **WASC**.
