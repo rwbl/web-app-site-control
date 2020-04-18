@@ -2,7 +2,7 @@
 A tailor made Home Automation & Information System with a WebUI for use with smartphones.
 
 ### Purpose
-To create a Home Automation & Information System, running on a Raspberry Pi 3B+, accessible via a browser-based application (WebUI) for use with smartphones.
+To create a Home Automation & Information System, running on a Raspberry Pi 3B+, accessible via a browser-based application (WebUI) for use mainly (but not only) with smartphones.
 
 **Requirements**
 
