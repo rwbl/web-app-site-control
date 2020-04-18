@@ -16,7 +16,8 @@ To create a Home Automation & Information System, running on a Raspberry Pi 3B+,
 * modular approach, split into functions, represented in the WebUI several Tabs with Groups - each having its own flow.
 * created for **private use only**. To adapt for own purposes, it will need a deep dive into the various flows.
 * ment as an experiment & trigger for ideas or suggestion building a Home Automation & Information System.
-* is being _developed further_ [more functions] - working title **WASC**.
+* being _developed further_ [more functions] - working title **WASC**.
+* running smooth since Q4'2019.
 
 #### WebUI with additional information of the functions
 ![wasc-ui](https://user-images.githubusercontent.com/47274144/79632673-29201280-8161-11ea-9b79-02f5cb0f99eb.png)
