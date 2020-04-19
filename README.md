@@ -32,7 +32,7 @@ To create a Home Automation & Information System, running on a Raspberry Pi 3B+,
 #### WASC-Box
 Fun project, which is a custom LEGO® creation displaying WASC data and control functions (LEGO is a trademark of the LEGO Group). Hardware: Raspberry Pi Zero W, LCD2004 display, 4 Pushbuttons. Software: Node-RED.
 
-_Note_: Solution not finalized - work in progress on push-button handling & integrating LEDs. The initial solution displays climate data (MQTT) and a clock. The green push-button sets the setpoint of a Homematic IP thermostat, the white push-button shuts the Raspberry Pi down.
+_Note_: Solution not finalized - work in progress on push-button handling & integrating LEDs. The initial solution displays climate data (received via MQTT) and a clock. The green push-button sets the setpoint of a Homematic IP thermostat, the white push-button shuts the Raspberry Pi down.
 
 ![wasc-box](https://user-images.githubusercontent.com/47274144/79644032-87bbaf80-81a6-11ea-94b5-c56f0894e807.png)
 
@@ -42,9 +42,11 @@ _IN PROGRESS_ (not shared yet): PDF document **webapp-sitecontrol.pdf** describi
 
 ### Software Versions
 _(The versions are subject to change as keeping to the latest versions)_
-* Linux: 4.19.66-v7+ #1253
+* Raspian Buster - Linux: 4.19.97-v7+ #1294, mosquitto message broker 1.5.7
 * Node-RED: 1.0.5
-* Additional nodes: node-red-dashboard 2.20.0, node-red-contrib-bme280 1.0.0, node-red-contrib-rfxcom 2.10.0, node-red-contrib-lcd20x4-i2c 0.1.1 (used by the WASC-Box).
+* Node-RED additional nodes:
+  * WASC: node-red-dashboard 2.20.0, node-red-contrib-bme280 1.0.0, node-red-contrib-rfxcom 2.10.0
+  * WASC-Box: node-red-contrib-lcd20x4-i2c 0.1.1, node-red-node-ui-list 0.2.5
 
 ### Credits
 To the developers of Node-RED & additional nodes & flows and to all sharing related information.
